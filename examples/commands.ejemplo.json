@@ -1,0 +1,28 @@
+{
+  "_ayuda": "Cada clave es la frase que le dirás a Archito para disparar el comando. Copia este archivo a ~/.config/archito/commands.json y edítalo a gusto. Todo comando personal se ejecuta SIEMPRE en una terminal visible y SIEMPRE pide confirmación. dangerous:true pinta la confirmación en rojo con advertencia extra.",
+
+  "backup documentos": {
+    "command": "rsync -avh --delete ~/Documentos/ /run/media/$USER/backup/Documentos/",
+    "description": "Copia incremental de Documentos al disco externo montado en /run/media.",
+    "dangerous": false
+  },
+
+  "limpiar journal": {
+    "command": "sudo journalctl --vacuum-time=7d",
+    "description": "Recorta los logs de systemd dejando solo la última semana.",
+    "dangerous": true,
+    "confirm_text": "Esto borra logs antiguos PERMANENTEMENTE. ¿Seguro?"
+  },
+
+  "estado git": {
+    "command": "git -C ~/Proyectos/mi-proyecto status && git -C ~/Proyectos/mi-proyecto log --oneline -5",
+    "description": "Resumen del estado y últimos commits de mi proyecto principal.",
+    "dangerous": false
+  },
+
+  "temperatura gpu": {
+    "command": "sensors | grep -A4 amdgpu",
+    "description": "Lectura rápida de sensores de la GPU AMD.",
+    "dangerous": false
+  }
+}
