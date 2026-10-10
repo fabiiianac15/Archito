@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "El panel solo puede llamar a los comandos propios de Archito.",
+  "windows": ["panel"],
+  "permissions": ["core:event:default"]
+}

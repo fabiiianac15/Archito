@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = ["crates/archito-core", "crates/archito-cli", "app/src-tauri"]
+default-members = ["crates/archito-core", "crates/archito-cli"]
+
+[workspace.package]
+version = "0.6.0"
+edition = "2021"
+license = "MIT"
+
+[profile.release]
+opt-level = "s"
+lto = "thin"
+strip = true

@@ -15,3 +15,9 @@ dist/
 *.swp
 *.swo
 .DS_Store
+
+# Reforma Rust + Tauri
+/target/
+node_modules/
+app/dist/
+app/src-tauri/gen/

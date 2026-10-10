@@ -1,0 +1,62 @@
+# Construye la AppImage de Archito en cada cambio que llega a master y la
+# publica en la release fija "appimage". El enlace de descarga del README
+# apunta siempre a ese archivo, así que nunca hay que actualizarlo a mano.
+name: AppImage
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: appimage
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Una base antigua a propósito: la AppImage corre en cualquier distro con
+    # una glibc igual o más nueva que la de la máquina que la construyó.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencias del sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential file patchelf libssl-dev \
+            libgtk-3-dev libwebkit2gtk-4.1-dev libgtk-layer-shell-dev librsvg2-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Pruebas del núcleo
+        run: cargo test -p archito-core
+
+      - name: Construir la AppImage
+        run: ./scripts/appimage.sh
+
+      - name: Publicar en la release "appimage"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          notes="Archito $version, construida desde el commit ${GITHUB_SHA::7}. Se reemplaza en cada cambio de master."
+          # La etiqueta se mueve al commit que se acaba de construir.
+          git tag -f appimage
+          git push -f origin appimage
+          if gh release view appimage >/dev/null 2>&1; then
+            gh release edit appimage --title "Archito (última AppImage)" --notes "$notes"
+          else
+            gh release create appimage --title "Archito (última AppImage)" --notes "$notes"
+          fi
+          gh release upload appimage dist/Archito-x86_64.AppImage --clobber

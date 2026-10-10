@@ -1,0 +1,27 @@
+[package]
+name = "archito-panel"
+description = "Panel de escritorio de Archito"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "archito_panel"
+crate-type = ["rlib"]
+
+[[bin]]
+name = "archito-panel"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+archito-core = { path = "../../crates/archito-core" }
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# El GTK sobre el que ya corre Tauri, para alcanzar su ventana y volverla una
+# superficie layer-shell. libgtk-layer-shell se llama directo (layer.rs).
+gtk = "0.18"

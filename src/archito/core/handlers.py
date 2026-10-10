@@ -186,37 +186,9 @@ def h_calculadora(brain, expr):
         ), status="warn")
 
 
-def h_moneda(brain, n, raw):
-    r = random.choice(["¡**CARA**!", "¡**CRUZ**!"])
-    return Response(text=f"{r} 🪙\nLa moneda nunca miente.",
-                    chips=["tira un dado"])
-
-
-def h_dado(brain, n, raw):
-    m = re.search(r"\bd(\d+)\b", n) or re.search(r"dado de (\d+)", n)
-    sides = min(int(m.group(1)), 1000) if m else 6
-    r = random.randint(1, sides)
-    emoji = {"6": "🎲", "20": "🐉", "100": "💯"}.get(str(sides), "🎲")
-    return Response(text=f"Sacaste un **{r}** (d{sides}). {emoji}",
-                    chips=["lanza una moneda"])
-
-
-def h_elige(brain, opciones):
-    opciones = [o.strip() for o in opciones if o.strip()]
-    if len(opciones) < 2:
-        return Response(text="Dame al menos dos opciones separadas por \"o\" o comas. 😅")
-    eleccion = random.choice(opciones)
-    return Response(text=f"Mi decisión infalible: **{eleccion}** ✨")
-
-
-def h_chiste(brain, n, raw):
-    from archito.core.textutils import JOKES
-    return Response(text=pick(*JOKES), chips=["otro chiste", "consejo"])
-
-
 def h_consejo(brain, n, raw):
     from archito.core.textutils import TIPS
-    return Response(text=pick(*TIPS), chips=["otro consejo", "chiste"])
+    return Response(text=pick(*TIPS), chips=["otro consejo"])
 
 
 def h_limpiar_chat(brain, n, raw):
@@ -1335,7 +1307,7 @@ def h_cafe(brain, n, raw):
         "> [sudo] password for archito:\n"
         "> Café servido. Productividad +100%.\n"
         "> Advertencia: la cafeína no se desinstala con pacman."
-    ), chips=["otro chiste"])
+    ), chips=["consejo"])
 
 
 def h_gentoo(brain, n, raw):

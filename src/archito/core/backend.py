@@ -98,12 +98,6 @@ class Brain:
                        "que horas son", "hora"], H.h_hora),
             ("fecha", ["que dia es hoy", "fecha de hoy", "en que fecha",
                         "dia de la semana", "fecha"], H.h_fecha),
-            ("moneda", ["lanza una moneda", "tira una moneda", "cara o cruz",
-                         "lanzamiento de moneda"], H.h_moneda),
-            ("dado", ["tira un dado", "lanza un dado", "tira un d20",
-                       "dado", "un dado de"], H.h_dado),
-            ("chiste", ["chiste", "broma", "hazme reir", "cuentame algo gracioso",
-                         "otro chiste"], H.h_chiste),
             ("consejo", ["consejo", "tip", "truco", "dato curioso",
                           "otro consejo", "ensename algo"], H.h_consejo),
 
@@ -255,7 +249,7 @@ class Brain:
 
     def welcome(self) -> Response:
         return Response(text=WELCOME_TEXT,
-                        chips=["ayuda", "info del sistema", "chiste"])
+                        chips=["ayuda", "info del sistema", "consejo"])
 
     def explain(self, command: str) -> Response:
         from archito.core.explain import explain_command
@@ -429,13 +423,6 @@ class Brain:
                 )
                 if looks_like_cmd:
                     return H.h_explicar(self, objetivo)
-
-        # 6. Elige entre A o B / A, B o C
-        m = re.match(r"^(?:elige|escoge|decide)\s+(?:entre\s+)?(.+)$", n)
-        if m:
-            raw_opts = m.group(1)
-            opts = re.split(r"\s+o\s+|\s*,\s*|\s+vs\.?\s+", raw_opts)
-            return H.h_elige(self, [o.strip() for o in opts if o.strip()])
 
         # 7. Tabla de intenciones por palabra clave
         hit = self._match_intent(n)

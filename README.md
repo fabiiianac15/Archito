@@ -1,334 +1,215 @@
 # Archito
 
-Asistente local para Arch Linux con interfaz flotante, diagnóstico del sistema, acciones seguras y apoyo opcional de IA local.
+Un compañero local para aprender Arch Linux. Vive como una isla en el borde superior de la pantalla, explica cada comando antes de ejecutarlo, traduce los errores y revisa el sistema contigo.
 
-> No reemplaza la terminal: ayuda a entenderla, a usarla con confianza y a tomar decisiones informadas.
+> No reemplaza la terminal. Te ayuda a entenderla hasta que ya no lo necesites.
 
-Archito es un proyecto pensado para la comunidad de Arch y Linux avanzado: consulta el estado real del sistema, responde en lenguaje natural, ejecuta solo acciones autorizadas y explica cada operación con contexto.
+**[⬇ Descargar Archito (AppImage)](https://github.com/fabiiianac15/Archito/releases/download/appimage/Archito-x86_64.AppImage)**
 
-## ¿Qué es Archito?
+Mucha gente abandona Arch en el primer error que no entiende. Archito está pensado para ese momento: en vez de esconder los comandos, los muestra, los desarma pieza por pieza y comprueba en tu equipo real que lo que aprendiste funcionó.
 
-Archito combina varias ideas en una sola experiencia:
+## Estado
 
-- asistente conversacional local
-- panel visual sobre Wayland
-- diagnóstico del sistema en lenguaje claro
-- seguridad por diseño antes de ejecutar cambios
-- educación técnica a través de explicaciones
-- apoyo opcional a modelos locales con Ollama
+Versión 0.6.0, en desarrollo activo.
 
-La idea no es automatizar el sistema sin control del usuario, sino hacer que el usuario comprenda qué está pasando y pueda reaccionar con criterio.
+El proyecto está pasando de Python + GTK4 a Rust + Tauri. El núcleo, la CLI y la isla nuevos ya funcionan. La versión en Python sigue en `src/` como referencia hasta que la nueva cubra todo lo que hacía (ver [Qué falta por portar](#qué-falta-por-portar)).
 
-## Filosofía del proyecto
+## Qué hace
 
-1. Privacidad: todo se ejecuta localmente cuando es posible.
-2. Transparencia: no se ocultan comandos ni decisiones.
-3. Seguridad: las acciones destructivas o sensibles requieren confirmación.
-4. Educación: cada respuesta intenta enseñar, no solo responder.
-5. Libertad: el proyecto quiere ser abierto, adaptable y personalizable.
+### Te enseña
 
-## Estado actual
+- **Camino.** Diez misiones cortas en cuatro etapas, con niveles y experiencia. Las haces tú en tu terminal y Archito comprueba que las hiciste mirando el historial de tu shell y el registro de pacman.
+- **Así lo harías tú.** Cada respuesta sobre tu sistema incluye el comando real que hay detrás, con un botón para explicarlo.
+- **Modo profesor.** Toda acción llega con su comando desarmado: qué es `sudo`, qué hace `-Syu`, qué es el último argumento. Viene activado.
+- **Glosario.** 24 términos (kernel, AUR, systemd, pacnew, swap…) explicados en claro, cada uno con un comando para verlo en tu equipo.
+- **Bitácora.** Cada comando que ves se apunta con su explicación. Es tu chuleta personal y se llena sola.
 
-Versión actual: 0.5.0
+### Traduce errores
 
-Archito se encuentra en una etapa activa de prototipo funcional con una interfaz muy pulida visualmente, pero todavía orientada a la investigación, la iteración y la adaptación a distintos entornos Arch/Wayland.
+- Pega un mensaje de error en el chat y Archito te dice qué pasó, por qué y qué hacer. Reconoce los más comunes de pacman, systemd y permisos.
+- Con el hook de la shell instalado, `archito porque` explica el último comando que falló sin que tengas que copiar nada.
 
-Características destacadas de esta etapa:
+### Revisa tu sistema
 
-- panel flotante con estilo HUD glassmorphism
-- dock lateral plegable/expandible
-- interfaz conversacional con sugerencias, historial y mensajes animados
-- detección y diagnóstico local del hardware y sistema
-- seguridad y clasificación de acciones
-- memoria local del usuario
-- soporte opcional para IA local con Ollama
-- temas visuales dinámicos, incluyendo variantes para Hyprland
+- Guías que investigan antes de responder: "no tengo sonido", "no tengo internet", "va lento", "no arranca". Miran los servicios reales de tu equipo y dicen cuál falla.
+- Estado de salud, CPU, memoria, disco, temperatura, procesos, batería, servicios fallidos y errores del registro.
+- Paquetes: buscar, instalar, quitar, actualizar con aviso de qué piezas centrales cambian, huérfanos y caché.
 
-## Capacidades principales
+## La isla
 
-### Sistema y hardware
+En el escritorio, Archito es una píldora pegada al borde superior, al centro. Un clic la abre con un resorte hasta un panel bajo y ancho que no cambia de tamaño:
 
-- información del sistema
-- kernel, distro, hardware, CPU, RAM, disco, batería, GPU
-- temperatura, uptime, boot time, sesiones activas
-- diagnóstico de rendimiento y servicios fallidos
-- revisión de salud general del equipo
+- A la izquierda, las opciones: Inicio, Chat, Camino y Bitácora.
+- A la derecha, la vista elegida. Inicio resume tu nivel, tu siguiente misión y seis accesos rápidos.
+- Abajo, la caja de texto, disponible en todas las vistas.
 
-### Arch y mantenimiento
+El color del borde y del punto indica el estado (listo, pensando, atención, error). Fuera de la forma de la isla, los clics pasan a la ventana de abajo.
 
-- paquetes instalados, paquetes grandes, huérfanos
-- actualizaciones pendientes
-- archivos pacnew, vulnerabilidades, historial de instalación
-- solución de problemas comunes de arranque y sistema
-- explicación de comandos y mantenimiento de la máquina
+Funciona en compositores Wayland con layer-shell: Hyprland, Sway, KDE Plasma y COSMIC. En GNOME y en X11 se abre como una ventana normal sin bordes.
 
-### Escritorio y entorno
-
-- capturas de pantalla
-- bloqueo de pantalla
-- brillo y volumen
-- integración con Hyprland
-- recarga de configuración del compositor
-
-### Interacción y experiencia
-
-- conversación natural
-- sugerencias rápidas
-- historial de la sesión
-- memoria persistente del usuario
-- temas visuales
-- modo táctil para pantallas pequeñas
-- experiencias easter eggs y personalidad del asistente
-
-## Arquitectura del proyecto
-
-La arquitectura está pensada como una separación clara entre interfaz, lógica de intención y acceso a recursos del sistema.
+## Arquitectura
 
 ```text
-Usuario
-  │
-  ▼
-UI (GTK4 + layer-shell)
-  │
-  ▼
-Brain / Intents (backend.py)
-  │
-  ├─> handlers.py: respuestas y decisiones por intención
-  ├─> system.py: sondas de solo lectura del sistema
-  ├─> actions.py: clasificación y ejecución segura
-  ├─> memory.py: almacenamiento local de preferencias
-  ├─> custom.py: comandos personalizados JSON
-  ├─> ai.py: integración local con Ollama
-  └─> explain.py: conocimiento para explicar comandos
-  │
-  ▼
-Sistema operativo / Arch / Wayland / shell
+            ┌──────────────────────────────┐
+            │         archito-core         │   Rust, sin interfaz
+            │  intenciones · sondas        │
+            │  seguridad · explicador      │
+            │  errores · misiones          │
+            └──────┬────────────────┬──────┘
+                   │                │
+          ┌────────┴──────┐  ┌──────┴────────────┐
+          │  archito-cli  │  │   archito-panel   │
+          │   terminal    │  │ Tauri + TypeScript│
+          └───────────────┘  └───────────────────┘
+                   ▲
+                   │  apunta cada comando y su resultado
+          ┌────────┴──────┐
+          │ hook de shell │   fish · zsh · bash
+          └───────────────┘
 ```
 
-### Capas principales
+| Ruta | Qué contiene |
+|---|---|
+| `crates/archito-core/` | El núcleo. `brain.rs` decide la intención, `probe.rs` lee el sistema, `safety.rs` clasifica el riesgo, `explain.rs` desarma comandos, `errors.rs` traduce errores, `lessons.rs` lleva el camino, `glossary.rs` y `memory.rs` completan el resto. |
+| `crates/archito-cli/` | El binario `archito` para la terminal. |
+| `app/src-tauri/` | El backend de la isla: comandos hacia el núcleo y la capa layer-shell (`layer.rs`). |
+| `app/src/` | La interfaz en TypeScript sin framework. `island.ts` anima la forma, `main.ts` pinta las vistas. |
+| `shell/` | Los hooks para fish, zsh y bash. |
+| `src/`, `legacy/` | La versión anterior en Python. |
 
-#### 1. Entrada e interfaz
+El núcleo no sabe nada de ventanas. La CLI y la isla usan la misma librería, y un futuro Arch Mobile haría lo mismo.
 
-- `src/archito/app.py`: aplicación GTK principal
-- `src/archito/ui/window.py`: ventana de chat y panel principal
-- `src/archito/ui/dock.py`: dock lateral plegable
-- `src/archito/ui/style.py`: estilos visuales y temas
+## Seguridad
 
-Estas partes controlan la presencia visual, la animación, el comportamiento de la ventana y la integración con layer-shell de Hyprland.
-
-#### 2. Núcleo de decisión
-
-- `src/archito/core/backend.py`: orquestación del procesamiento del texto
-- `src/archito/core/handlers.py`: handlers por intención y tipo de petición
-- `src/archito/core/textutils.py`: normalización y afinación de respuesta
-
-Es el cerebro: toma el texto del usuario, identifica la intención, decide qué información consultar y prepara la respuesta.
-
-#### 3. Sistema y seguridad
-
-- `src/archito/core/system.py`: sondeo local del sistema, sin modificar nada
-- `src/archito/core/actions.py`: clasificación de permisos, ejecución segura y control de terminal
-- `src/archito/core/memory.py`: almacenamiento persistente en `~/.config/archito/`
-
-Aquí se aplica la regla clave del proyecto: lectura segura por defecto, modificacion con confirmación y acciones peligrosas bloqueadas o explícitamente advertidas.
-
-#### 4. Extensión y modelo local
-
-- `src/archito/core/ai.py`: integración con Ollama local
-- `src/archito/core/custom.py`: comandos definidos por el usuario en JSON
-
-Esto permite ampliar el comportamiento del asistente sin depender de servicios externos ni de una nube.
-
-## Modelo de seguridad
-
-Archito no ejecuta comandos arbitrariamente. La lógica de seguridad incluye:
-
-- comandos de solo lectura: se ejecutan en línea y se muestran dentro del chat
-- comandos que modifican el sistema: requieren confirmación explícita
-- acciones peligrosas: están bloqueadas o marcadas con advertencias claras
-- entorno limpio para subprocesos: se eliminan variables problemáticas del entorno
-- no se usa Internet para la lógica principal del sistema
-
-Esto convierte a Archito en una herramienta más segura y transparente que un asistente que ejecuta "sin explicar".
+- **Las sondas solo leen.** Nada en `probe.rs` cambia el equipo.
+- **El riesgo lo decide el clasificador.** Analiza cada tramo del comando por separado, así que `pacman -Qi bash; rm -rf ~` sale como peligroso aunque empiece con una lectura.
+- **Tres niveles.** Lectura (se ejecuta dentro del chat), cambio (se abre en una terminal visible, tras confirmar) y peligroso (advertencia aparte y doble confirmación).
+- **La interfaz no manda comandos.** Solo envía el número de una acción que el núcleo propuso antes. El texto que se ejecuta es el que guardó el núcleo.
+- **Todo es local.** La memoria vive en `~/.config/archito/`. No hay telemetría ni llamadas a servicios externos.
 
 ## Instalación
 
-### Requisitos de sistema
+### AppImage
 
-En Arch Linux:
+Un solo archivo, sin instalar nada. El enlace descarga siempre la versión más reciente:
 
-```bash
-sudo pacman -S gtk4 python-gobject gtk4-layer-shell
-```
-
-Opcionalmente, según tus usos:
+**[Archito-x86_64.AppImage](https://github.com/fabiiianac15/Archito/releases/download/appimage/Archito-x86_64.AppImage)**
 
 ```bash
-sudo pacman -S pacman-contrib grim hyprlock brightnessctl
+chmod +x Archito-x86_64.AppImage
+./Archito-x86_64.AppImage
 ```
 
-### Instalación automática
+Se reconstruye sola en cada cambio que llega a `master` (ver `.github/workflows/appimage.yml`). Trae la isla y, dentro, la CLI. Pesa unos 110 MB porque lleva su propio motor web.
+
+Para construirla en tu equipo: `./scripts/appimage.sh`. Queda en `dist/Archito-x86_64.AppImage`.
+
+### Desde el código
+
+#### Dependencias
 
 ```bash
-./install.sh
+sudo pacman -S rustup nodejs npm webkit2gtk-4.1 gtk-layer-shell
+rustup default stable
 ```
 
-Este script instala dependencias, prepara el lanzador y puede configurar Ollama para IA local opcional.
-
-### Instalación manual
+Opcionales, para sacarle más partido:
 
 ```bash
-pip install --user .
+sudo pacman -S pacman-contrib pkgfile   # checkupdates, paccache, y saber qué paquete trae un comando
+sudo pkgfile --update
 ```
 
-O desde el repositorio:
+#### Compilar
 
 ```bash
-PYTHONPATH=src python -m archito
+cargo build --release                        # núcleo y CLI
+cd app && npm install && npx tauri build --no-bundle   # la isla
 ```
 
-## Uso rápido
+Los binarios quedan en `target/release/`: `archito` (CLI) y `archito-panel` (isla).
 
-Lanza el asistente:
+La primera compilación de la isla tarda varios minutos. En equipos con poca memoria, el primer arranque justo después de compilar puede tardar unos segundos en pintarse.
+
+## Uso
+
+### En la terminal
 
 ```bash
-archito
+archito                          # conversación
+archito cuánta ram tengo         # una pregunta y sale
+archito explica sudo pacman -Syu # desarma un comando
+archito porque                   # explica el último comando que falló
+archito camino                   # tu siguiente misión
+archito comprobar                # comprueba la misión en curso
+archito hook --install           # conecta tu shell
 ```
 
-Ejemplos de consultas:
+### La isla
 
-- `info del sistema`
-- `temperatura`
-- `ram`
-- `actualiza el sistema`
-- `explica sudo pacman -Syu`
-- `tema catppuccin`
-- `mi ip`
-- `estado de salud`
-- `por qué va lento`
+```bash
+archito-panel                    # la abre; lanzarlo otra vez la abre o la recoge
+archito-panel --camino           # la abre en una vista concreta
+archito-panel no tengo sonido    # la abre con una pregunta
+```
 
-## Integración con Hyprland
-
-El proyecto está pensado para funcionar muy bien sobre Hyprland.
+Para tenerla en un atajo de Hyprland:
 
 ```ini
-bind = SUPER, space, exec, archito
-
-layerrule = blur, archito
-layerrule = ignorealpha 0.01, archito
-layerrule = blur, archito-dock
-layerrule = ignorealpha 0.01, archito-dock
+exec-once = archito-panel
+bind = SUPER, space, exec, archito-panel
 ```
 
-También se incluye un archivo de ejemplo en `hyprland/archito.conf` y una guía de estilo/glass en `docs/hyprland-glass.md`.
+Dentro de la isla, `Esc` la recoge y las flechas arriba y abajo recorren lo que ya escribiste.
 
-## Estructura del repositorio
+### El hook de la shell
 
-```text
-Archito/
-├── README.md
-├── LICENSE
-├── setup.py
-├── install.sh
-├── uninstall.sh
-├── run.sh
-├── Archito — Roadmap Maestro del Proyecto.md
-├── src/
-│   └── archito/
-│       ├── __init__.py
-│       ├── __main__.py
-│       ├── app.py
-│       ├── core/
-│       │   ├── actions.py
-│       │   ├── activity.py
-│       │   ├── ai.py
-│       │   ├── backend.py
-│       │   ├── custom.py
-│       │   ├── explain.py
-│       │   ├── handlers.py
-│       │   ├── health.py
-│       │   ├── mathcalc.py
-│       │   ├── memory.py
-│       │   ├── system.py
-│       │   ├── textutils.py
-│       │   └── themes.py
-│       └── ui/
-│           ├── assets.py
-│           ├── dock.py
-│           ├── style.py
-│           └── window.py
-├── docs/
-│   ├── hyprland-glass.md
-│   └── plugins.md
-├── examples/
-│   └── commands.ejemplo.json
-├── hyprland/
-│   └── archito.conf
-├── assets/
-│   └── img/
-├── img/
-├── legacy/
-│   ├── archito_window.py
-│   ├── backend.py
-│   └── main.py
-└── scripts/
-    └── archito.sh
+`archito hook --install` añade una función pequeña a tu shell que apunta cada comando y si terminó bien o mal. Con eso, `archito porque` sabe qué falló y el camino comprueba tus misiones al instante.
+
+Los datos se guardan en `$XDG_RUNTIME_DIR/archito/`, una carpeta en memoria, privada, que se borra al cerrar sesión. En fish queda activo al abrir una terminal nueva. En zsh y bash el instalador te muestra la línea que debes añadir a tu archivo de inicio, porque Archito no edita ese archivo por ti.
+
+## Desarrollo
+
+```bash
+cargo test                       # pruebas del núcleo
+cd app && npm run tauri dev      # la isla con recarga en caliente
+ARCHITO_DEBUG=1 archito-panel    # trazas de arranque de la capa
 ```
 
-## IA local opcional
+Variables útiles: `ARCHITO_CONFIG_DIR` cambia dónde se guarda la memoria, `ARCHITO_RUNTIME_DIR` dónde escribe el hook y `ARCHITO_LAYER_SHELL=0` abre la isla como ventana normal.
 
-Archito puede funcionar sin IA, pero si tienes Ollama disponible, admite un modelo local para responder preguntas abiertas y ayudar a analizar el contexto del sistema sin exponerlo fuera del equipo.
+## Qué falta por portar
 
-La integración está pensada para ser segura:
+La versión en Python hace cosas que la nueva todavía no:
 
-- solo acepta el servidor local
-- no ejecuta automáticamente acciones sin confirmación
-- no reemplaza el flujo de permisos ni de seguridad del sistema
+- IA local opcional con Ollama
+- temas de color
+- volumen, brillo, capturas y bloqueo de pantalla
+- comandos personalizados en JSON
 
-## Roadmap y dirección
+Lo siguiente en la lista es la IA local con respuesta en streaming, apoyada en la Arch Wiki sin conexión (`arch-wiki-docs`) para que cite lo que dice. Después vienen las animaciones y los sonidos del personaje.
 
-El proyecto ya tiene una hoja de ruta propia en `Archito — Roadmap Maestro del Proyecto.md` con fases, principios y visión a largo plazo. La visión central es construir un asistente local y educativo para Linux, con una base técnica sólida y una experiencia visual útil.
+La versión en Python se sigue pudiendo usar con `./install.sh` o `PYTHONPATH=src python -m archito` (necesita `gtk4`, `python-gobject` y `gtk4-layer-shell`).
 
-### Fases visibles del proyecto
+## Hoja de ruta
 
-- prototipo visual de ventana
-- análisis de sistema
-- interpretación de intenciones
-- acciones seguras con confirmación
-- memoria local y personalización
-- temporización visual, temas y refinamiento de UX
-- soporte de plugins y extensiones
-- IA local opcional
-- visión hacia Arch Mobile / ecosistema más amplio
+La visión completa, por fases, está en [`Archito — Roadmap Maestro del Proyecto.md`](<Archito — Roadmap Maestro del Proyecto.md>). Los principios que guían cada decisión son privacidad, transparencia, seguridad, educación y libertad.
 
-## Contribución
+## Contribuir
 
-Las contribuciones son bienvenidas.
+Las contribuciones son bienvenidas: haz un fork, crea una rama, comprueba que `cargo test` pasa y abre un pull request explicando el cambio.
 
-Si quieres colaborar:
+Donde más ayuda hace falta:
 
-1. haz un fork del proyecto
-2. crea una rama para tu cambio
-3. prueba tus cambios localmente
-4. abre un pull request con descripción clara
+- más misiones para el camino y más errores en el traductor
+- pruebas en otros compositores (Sway, KDE, COSMIC, GNOME)
+- más términos en el glosario
+- traducciones
 
-Se agradece especialmente ayuda en:
+## Créditos
 
-- mejoras de UX
-- integración con más herramientas del sistema
-- diagnósticos más inteligentes
-- documentación
-- soporte para más escritorios y entornos
-- prueba en distintos equipos Arch
+La forma de montar una ventana de Tauri como superficie layer-shell con región de entrada viene de [Coucou](https://github.com/Louis-CFM/coucou) (código bajo licencia MIT), que también inspiró el formato de isla. El personaje, el nombre y el resto del código de Archito son propios.
 
 ## Licencia
 
-Este proyecto está licenciado bajo la licencia MIT.
-
-Consulta el archivo [LICENSE](LICENSE) para más detalles.
-
-## Resumen corto
-
-Archito es un asistente local para Arch Linux que ayuda a entender el sistema, responder consultas reales del equipo y ejecutar cambios con seguridad, claridad y educación.
-
-Su objetivo principal no es reemplazar la terminal, sino hacer que aprender a usar Linux sea más accesible, seguro y transparente.
+MIT. Consulta [LICENSE](LICENSE).

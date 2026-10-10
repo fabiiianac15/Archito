@@ -30,16 +30,6 @@ def bar(pct: float, width: int = 14) -> str:
     return "[" + "█" * filled + "░" * (width - filled) + "]"
 
 
-JOKES = [
-    "¿Por qué los programadores prefieren el modo oscuro?\nPorque la luz atrae a los bugs. 🐛",
-    "Un usuario le dice a su Linux: \"Me congelaste\".\nEl Linux responde: \"Tranquilo, era solo un fork bomb\". ❄️",
-    "¿Qué le dijo un pingüino al otro?\n\"Parece que entramos en producción sin probar\". 🐧",
-    "Hay 10 tipos de personas en el mundo:\nlas que entienden binario y las que no. 🔢",
-    "Mi RAM y yo tenemos algo en común:\nnunca recordamos lo que pasó hace un momento. 🐏",
-    "\"En mi máquina funciona\" es la frase más cara\nde la historia del software. 😄",
-    "sudo no acepta excusas.\nEl kernel solo entiende logs. ⚖️",
-]
-
 TIPS = [
     "**man comando** es tu mejor amigo: el manual vive dentro de tu sistema, sin Internet.",
     "Con **Tab** completas nombres de archivos y comandos. Con **↑** recuperas el anterior.",
@@ -76,8 +66,7 @@ HELP_TEXT = (
     "$ Diagnóstico — estado de salud · por qué va lento · servicios fallidos · errores recientes\n"
     "$ Transparencia — mi actividad (bitácora local de acciones)\n"
     "$ IA local — preguntas libres, acciones preparadas con confirmación obligatoria\n"
-    "$ Profesor — explica <comando> · consejo · modo principiante\n"
-    "$ Diversión — chiste · tira un dado · lanza una moneda · elige entre X o Y\n\n"
+    "$ Profesor — explica <comando> · consejo · modo principiante\n\n"
     "> Escríbelo con tus palabras: entiendo variantes,\n"
     "> con o sin acentos. Y nada sale de tu equipo. 🔒"
 )
