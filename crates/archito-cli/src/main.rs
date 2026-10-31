@@ -230,11 +230,13 @@ fn main() {
         Some("--version" | "-V") => return println!("archito {}", archito_core::VERSION),
         Some("--help" | "-h") => {
             return println!(
-                "Archito {}: tu compañero para aprender Arch Linux\n\n  archito                    conversación\n  archito <pregunta>         una pregunta y sale\n  archito explica <comando>  desarma un comando\n  archito porque             explica el último comando que falló\n  archito camino             tus misiones y tu nivel\n  archito comprobar          comprueba la misión en curso\n  archito hook [--install]   integración con fish, zsh o bash\n  archito --json <pregunta>  respuesta en JSON",
+                "Archito {}: tu compañero para aprender Arch Linux\n\n  archito                    conversación\n  archito <pregunta>         una pregunta y sale\n  archito explica <comando>  desarma un comando\n  archito porque             explica el último comando que falló\n  archito camino             tus misiones y tu nivel\n  archito comprobar          comprueba la misión en curso\n  archito hook [--install]   integración con fish, zsh o bash\n  archito --json <pregunta>  respuesta en JSON\n  archito --tema             colores que la isla toma de tu escritorio",
                 archito_core::VERSION
             )
         }
         Some("hook") => return hook(&args[1..]),
+        // Los colores que la isla tomará del escritorio, en JSON.
+        Some("--tema") => return println!("{}", serde_json::to_string_pretty(&archito_core::theme::detect()).unwrap_or_default()),
         _ => {}
     }
     let bot = Archito::new();

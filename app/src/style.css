@@ -1,26 +1,43 @@
-/* Archito Noche: la paleta del panel original (core/themes.py). */
+/* ── Colores ───────────────────────────────────────────────────────────────
+   Estos son los de reserva (Archito Noche). theme.ts los cambia por los del
+   escritorio: matugen, pywal, KDE, GTK o GNOME (ver archito-core/theme.rs).
+   Cada color tiene su trío `-rgb` para poder darle transparencia. */
 :root {
-  --bg-top: 19, 25, 38;
-  --bg-bottom: 12, 16, 26;
-  --title: #f0f5ff;
-  --text: #dde6f6;
-  --dim: #a9b6cf;
-  --meta: #66738f;
-  --accent: #6fb6ff;
-  --accent-rgb: 111, 182, 255;
-  --ok: #79d68a;
-  --ok-rgb: 121, 214, 138;
-  --warn: #f2c14e;
-  --warn-rgb: 242, 193, 78;
-  --danger: #ff6b81;
-  --danger-rgb: 255, 107, 129;
-  --code-bg: rgba(5, 8, 14, 0.72);
-  --line: rgba(240, 245, 255, 0.1);
+  --bg: #0d111b;
+  --bg-rgb: 13, 17, 27;
+  --surface: #1a1f2a;
+  --surface-rgb: 26, 31, 42;
+  --surface-high: #262c38;
+  --surface-high-rgb: 38, 44, 56;
+  --text: #e2e9f5;
+  --text-rgb: 226, 233, 245;
+  --dim: #9aa6bb;
+  --dim-rgb: 154, 166, 187;
+  --line: #2c3240;
+  --line-rgb: 44, 50, 64;
+  --accent: #1793d1;
+  --accent-rgb: 23, 147, 209;
+  --on-accent: #ffffff;
+  --on-accent-rgb: 255, 255, 255;
+  --accent2: #9278ff;
+  --accent2-rgb: 146, 120, 255;
+  --ok: #7ed691;
+  --ok-rgb: 126, 214, 145;
+  --warn: #f2c45c;
+  --warn-rgb: 242, 196, 92;
+  --danger: #ff808c;
+  --danger-rgb: 255, 128, 140;
+  --mascot: #1793d1;
+  --mascot-ink: #14111a;
+  --shadow: 0, 0, 0;
   --radius: 14px;
   font-family: "Inter", "Cantarell", "Noto Sans", system-ui, sans-serif;
   font-size: 13.5px;
   line-height: 1.5;
   color: var(--text);
+}
+:root[data-scheme="light"] {
+  --shadow: 60, 50, 50;
 }
 
 * {
@@ -41,42 +58,412 @@ input {
   color: inherit;
 }
 
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.7);
+  outline-offset: 2px;
+}
+
 code,
 pre {
   font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
   font-size: 12.5px;
 }
 
-/* ── La isla ──────────────────────────────────────────────────────────────
-   Una sola pieza oscura arriba al centro. Su ancho, alto y radio los mueve el
-   resorte de island.ts; aquí va todo lo demás: entrada, brillo y contenido. */
+svg {
+  flex-shrink: 0;
+}
+
+/* Iconos de línea: mismo trazo en toda la isla. */
+.tab svg,
+.win-btn svg,
+.tile svg,
+.send svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Archito ───────────────────────────────────────────────────────────────
+   El dibujo está en mascot.ts. Cada pieza gira o se mueve sobre su propio
+   punto (hombro, ojos, pies), en coordenadas del dibujo de 120 × 124. */
+.mascot {
+  overflow: visible;
+  display: block;
+}
+/* Las caras (píldora y cabecera) recortan al encuadre de su viewBox. */
+.mascot-pill,
+.mascot-brand {
+  overflow: hidden;
+}
+.mascot g,
+.mascot path,
+.mascot ellipse {
+  transform-box: view-box;
+}
+.m-body,
+.m-fill {
+  fill: var(--mascot);
+}
+.m-limb {
+  fill: none;
+  stroke: var(--mascot);
+  stroke-width: 3.4;
+  stroke-linecap: round;
+}
+.m-shadow ellipse {
+  fill: rgba(var(--shadow), 0.22);
+}
+.m-eye ellipse,
+.m-mouth-smile > path:first-child,
+.m-mouth-o {
+  fill: var(--mascot-ink);
+}
+.m-glint {
+  fill: #fff;
+}
+.m-tongue {
+  fill: #f27b84;
+}
+.m-brow,
+.m-closed,
+.m-mouth-wavy,
+.m-mouth-flat {
+  fill: none;
+  stroke: var(--mascot-ink);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+.m-cheek {
+  fill: #ff8fa3;
+  opacity: 0.45;
+}
+.m-sweat {
+  fill: #9fdcff;
+}
+.m-zzz text {
+  fill: var(--text);
+  font: 700 9px "Inter", system-ui, sans-serif;
+}
+
+.m-bob {
+  transform-origin: 60px 112px;
+}
+.m-arm-l {
+  transform-origin: 35px 64px;
+  transition: transform 0.35s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.m-arm-r {
+  transform-origin: 85px 64px;
+  transition: transform 0.35s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.m-eyes {
+  transform-origin: 60px 56px;
+}
+.m-face {
+  transition: transform 0.4s ease;
+}
+.m-brow {
+  transition: transform 0.3s ease;
+}
+.m-brow-l {
+  transform-origin: 49px 49px;
+}
+.m-brow-r {
+  transform-origin: 71px 49px;
+}
+
+/* Lo que no se ve no se anima. */
+.island:not(.is-settled) .panel .mascot *,
+.island:not([data-state="open"]) .panel .mascot *,
+.island[data-state="open"] .compact .mascot * {
+  animation: none !important;
+}
+
+/* Lo que solo aparece en algunas poses. */
+.m-closed,
+.m-mouth-o,
+.m-mouth-wavy,
+.m-mouth-flat,
+.m-sweat,
+.m-zzz {
+  display: none;
+}
+
+/* Quieto: parpadea y a veces mira a un lado (startLife, en mascot.ts, pone
+   las clases un instante). Solo el Archito grande del inicio respira, y solo
+   con la isla abierta: WebKitGTK redibuja por software y una animación
+   infinita cuesta mucha CPU. */
+.mascot.is-blink .m-eyes {
+  transform: scaleY(0.08);
+  transition: transform 0.07s ease-in;
+}
+.mascot .m-eyes {
+  transition: transform 0.09s ease-out;
+}
+.mascot.look-l .m-face {
+  transform: translateX(-1.6px);
+}
+.mascot.look-r .m-face {
+  transform: translateX(1.6px);
+}
+.island[data-state="open"] .mascot-home[data-pose="idle"] .m-bob {
+  animation: breathe 3.4s ease-in-out infinite;
+}
+
+/* Saludar y despedirse: el brazo izquierdo arriba, de lado a lado. */
+.mascot[data-pose="wave"] .m-arm-l,
+.mascot[data-pose="bye"] .m-arm-l {
+  transform: rotate(113deg);
+  animation: wave 0.42s ease-in-out 8 alternate;
+}
+
+/* Pensar: mira arriba, boca en o, una mano afuera. */
+.mascot[data-pose="think"] .m-face {
+  transform: translate(1.4px, -1.6px);
+}
+.mascot[data-pose="think"] .m-brow-r {
+  transform: translateY(-1.2px);
+}
+.mascot[data-pose="think"] .m-arm-r {
+  transform: rotate(-38deg);
+}
+.mascot[data-pose="think"] .m-bob {
+  animation: ponder 1.8s ease-in-out 4;
+}
+.mascot[data-pose="think"] .m-mouth-smile {
+  display: none;
+}
+.mascot[data-pose="think"] .m-mouth-o {
+  display: inline;
+}
+
+/* Celebrar: salta con los brazos arriba. */
+.mascot[data-pose="happy"] .m-bob {
+  animation: hop 0.62s cubic-bezier(0.3, 0.9, 0.4, 1) 2;
+}
+.mascot[data-pose="happy"] .m-arm-l {
+  transform: rotate(112deg);
+}
+.mascot[data-pose="happy"] .m-arm-r {
+  transform: rotate(-112deg);
+}
+
+/* Preocupado (atención) y error: cejas caídas, boca torcida, una gota. */
+.mascot[data-pose="worried"] .m-brow-l,
+.mascot[data-pose="error"] .m-brow-l {
+  transform: rotate(-16deg) translateY(0.6px);
+}
+.mascot[data-pose="worried"] .m-brow-r,
+.mascot[data-pose="error"] .m-brow-r {
+  transform: rotate(16deg) translateY(0.6px);
+}
+.mascot[data-pose="worried"] .m-mouth-smile,
+.mascot[data-pose="error"] .m-mouth-smile {
+  display: none;
+}
+.mascot[data-pose="worried"] .m-mouth-wavy,
+.mascot[data-pose="error"] .m-mouth-wavy,
+.mascot[data-pose="worried"] .m-sweat,
+.mascot[data-pose="error"] .m-sweat {
+  display: inline;
+}
+.mascot[data-pose="worried"] .m-bob {
+  animation: shiver 2.4s ease-in-out 2;
+}
+.mascot[data-pose="error"] .m-bob {
+  animation: shiver 1.1s ease-in-out 3;
+}
+.mascot[data-pose="error"] .m-arm-l {
+  transform: rotate(128deg);
+}
+.mascot[data-pose="error"] .m-arm-r {
+  transform: rotate(-128deg);
+}
+
+/* Dormido: ojos cerrados y unas zetas que suben. */
+.mascot[data-pose="sleep"] .m-eyes,
+.mascot[data-pose="sleep"] .m-mouth-smile {
+  display: none;
+}
+.mascot[data-pose="sleep"] .m-closed,
+.mascot[data-pose="sleep"] .m-mouth-flat,
+.mascot[data-pose="sleep"] .m-zzz {
+  display: inline;
+}
+/* Las zetas son lo único que se mueve sin parar mientras duerme: dos
+   letras pequeñas, un repintado diminuto. */
+.mascot[data-pose="sleep"] .m-zzz text {
+  animation: drift 3s ease-in-out infinite;
+}
+.mascot[data-pose="sleep"] .m-zzz text:nth-child(2) {
+  animation-delay: 1.5s;
+}
+
+@keyframes breathe {
+  50% {
+    transform: translateY(-1.8px) scaleY(1.012);
+  }
+}
+@keyframes wave {
+  from {
+    transform: rotate(92deg);
+  }
+  to {
+    transform: rotate(134deg);
+  }
+}
+@keyframes ponder {
+  50% {
+    transform: rotate(-3deg) translateY(-1px);
+  }
+}
+@keyframes hop {
+  30% {
+    transform: translateY(-11px);
+  }
+  55% {
+    transform: translateY(0) scaleY(0.93) scaleX(1.04);
+  }
+  72% {
+    transform: translateY(-3px);
+  }
+}
+@keyframes shiver {
+  0%,
+  70%,
+  100% {
+    transform: translateX(0);
+  }
+  76%,
+  88% {
+    transform: translateX(-1.2px);
+  }
+  82%,
+  94% {
+    transform: translateX(1.2px);
+  }
+}
+@keyframes drift {
+  0% {
+    opacity: 0;
+    transform: translate(0, 4px);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(5px, -8px);
+  }
+}
+
+/* ── Entrada ───────────────────────────────────────────────────────────────
+   Archito baja colgado de un hilo hasta un poco debajo del borde, saluda
+   con un globo de texto y vuela a la píldora (intro.ts). */
+/* Ocupa toda la ventana a propósito: con un contenedor de 0 × 0 WebKit
+   calcula mal la zona a repintar y deja restos del vuelo en pantalla. */
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  visibility: hidden;
+}
+.intro.is-on {
+  visibility: visible;
+}
+.intro-thread {
+  position: absolute;
+  top: 0;
+  left: calc(50% - 0.75px);
+  width: 1.5px;
+  height: 62px;
+  background: linear-gradient(rgba(var(--text-rgb), 0.15), rgba(var(--text-rgb), 0.6));
+  transform-origin: top;
+  transform: scaleY(0);
+}
+.intro-buddy {
+  position: absolute;
+  top: 56px;
+  left: calc(50% - 55px);
+  width: 110px;
+  height: 114px;
+  transform: translateY(-190px);
+}
+.intro-buddy .mascot {
+  width: 100%;
+  height: 100%;
+}
+.intro-bubble {
+  position: absolute;
+  top: 66px;
+  left: calc(50% + 62px);
+  padding: 8px 14px;
+  border-radius: 16px 16px 16px 4px;
+  background: var(--surface-high);
+  color: var(--text);
+  border: 1px solid rgba(var(--line-rgb), 0.9);
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 10px 26px rgba(var(--shadow), 0.32);
+  opacity: 0;
+  transform: translateX(-10px) scale(0.85);
+  transform-origin: left bottom;
+  transition:
+    opacity 0.25s ease,
+    transform 0.4s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+.intro-bubble.is-on {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── La isla ───────────────────────────────────────────────────────────────
+   Una sola pieza arriba al centro. Su ancho, alto y radio los mueve el
+   resorte de island.ts; aquí va todo lo demás. */
 .island {
   --glow: var(--accent-rgb);
+  /* Tamaño, posición y radio los pone island.ts en cada cuadro. */
   position: fixed;
-  top: 0;
+  top: -80px;
   left: 50%;
-  translate: -50% -60px;
-  width: 46px;
-  height: 34px;
-  border-radius: 0 0 17px 17px;
-  overflow: hidden;
-  background: #05070b;
-  border: 1px solid rgba(var(--glow), 0.2);
+  margin-left: -20px;
+  width: 40px;
+  height: 30px;
+  border-radius: 0 0 15px 15px;
+  /* Sin overflow: hidden a propósito. WebKitGTK guarda el recorte de los
+     hijos y, tras los cambios de tamaño de la entrada, lo dejaba vacío: se
+     veía el borde de la isla y nada de dentro. Nada se sale de la isla: el
+     panel mide lo mismo que ella y solo se muestra cuando terminó de abrirse. */
+  isolation: isolate;
+  background: transparent;
+  border: 1px solid rgba(var(--glow), 0.28);
   border-top: 0;
-  transform-origin: top center;
   box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.5),
-    0 0 22px rgba(var(--glow), 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    0 14px 40px rgba(var(--shadow), 0.42),
+    0 0 24px rgba(var(--glow), 0.12),
+    inset 0 -1px 0 rgba(var(--text-rgb), 0.04);
   transition:
-    translate 0.75s cubic-bezier(0.22, 1.35, 0.36, 1),
-    scale 0.25s ease,
     border-color 0.4s,
     box-shadow 0.4s;
   will-change: width, height;
 }
-.island.is-in {
-  translate: -50% 0;
+.island::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--bg);
+  transition: background-color 0.6s;
 }
 .island[data-mood="busy"],
 .island[data-mood="warn"] {
@@ -89,29 +476,22 @@ pre {
   --glow: var(--ok-rgb);
 }
 .island[data-state="pill"]:hover {
-  scale: 1.06;
-}
-.island[data-state="pill"]:active {
-  scale: 0.97;
-}
-.island.is-bump {
-  animation: bump 0.6s cubic-bezier(0.3, 1.6, 0.5, 1);
-}
-@keyframes bump {
-  35% {
-    scale: 1.12;
-  }
+  border-color: rgba(var(--glow), 0.6);
+  box-shadow:
+    0 14px 40px rgba(var(--shadow), 0.42),
+    0 0 30px rgba(var(--glow), 0.28);
 }
 
-/* Mientras piensa, una luz recorre el borde inferior. Solo existe en ese estado. */
+/* Mientras piensa, una luz recorre el borde inferior. */
 .island[data-mood="busy"]::after {
   content: "";
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 16px;
+  right: 16px;
   bottom: 0;
+  z-index: 3;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(var(--warn-rgb), 0.95), transparent);
+  background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.95), transparent);
   background-size: 45% 100%;
   background-repeat: no-repeat;
   animation: sweep 1.25s ease-in-out infinite;
@@ -125,7 +505,7 @@ pre {
   }
 }
 
-/* Recogida */
+/* Recogida: la cara de Archito, una palabra y un punto de estado. */
 .compact {
   position: absolute;
   inset: 0;
@@ -133,340 +513,320 @@ pre {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 14px 0 9px;
+  padding: 0 14px 0 8px;
   border: 0;
   background: transparent;
   cursor: pointer;
   white-space: nowrap;
-  transition: opacity 0.18s ease;
 }
+/* Sin transiciones de opacidad en la píldora: WebKitGTK puede dejarlas
+   congeladas en el primer cuadro mientras la ventana no tiene el foco. */
 .compact-avatar {
-  width: 27px;
-  height: 27px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
-  object-fit: contain;
-  transition: rotate 0.5s cubic-bezier(0.3, 1.6, 0.5, 1);
 }
-.island[data-state="hello"] .compact-avatar {
-  rotate: -8deg;
+.compact-avatar .mascot {
+  width: 100%;
+  height: 100%;
+}
+.island.is-landing .compact-avatar {
+  visibility: hidden;
 }
 .compact-text {
   flex: 1;
-  text-align: left;
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--title);
-  transition: opacity 0.25s ease 0.1s;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
 }
 .compact-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: rgb(var(--glow));
-  box-shadow: 0 0 8px rgba(var(--glow), 0.9);
-  transition: opacity 0.25s ease 0.1s, background 0.4s;
-}
-.island[data-mood="idle"] .compact-dot {
-  background: var(--ok);
-  box-shadow: 0 0 8px rgba(var(--ok-rgb), 0.9);
+  box-shadow: 0 0 8px rgba(var(--glow), 0.8);
 }
 .island[data-mood="busy"] .compact-dot {
-  animation: blink 0.9s infinite;
+  animation: pulse 1s ease-in-out infinite;
 }
-.island[data-state="boot"] .compact-text,
-.island[data-state="dot"] .compact-text,
-.island[data-state="boot"] .compact-dot,
-.island[data-state="dot"] .compact-dot {
-  opacity: 0;
-  transition-delay: 0s;
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
 }
-.island[data-state="open"] .compact {
-  opacity: 0;
+.island[data-state="open"] .compact,
+.island[data-state="hidden"] .compact {
+  visibility: hidden;
   pointer-events: none;
 }
 
-/* Abierta: tamaño fijo (el mismo de OPEN en island.ts). Cambiar de vista
-   cambia lo de dentro, nunca la isla. */
+/* Abierta: cabecera, vista y caja de texto. Nada más. */
 .panel {
   position: absolute;
-  top: 0;
-  left: 50%;
-  translate: -50% 0;
-  width: 664px;
-  height: 232px;
-  display: flex;
-  gap: 8px;
-  padding: 8px;
-  /* Cerrado no se pinta: `visibility` espera a que termine el fundido. */
-  opacity: 0;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: 48px 1fr auto;
+  padding: 0 16px 14px;
   visibility: hidden;
-  scale: 0.94;
   pointer-events: none;
-  transform-origin: top center;
-  transition:
-    opacity 0.16s ease,
-    scale 0.3s ease,
-    visibility 0s linear 0.3s;
 }
-.island[data-state="open"] .panel {
-  opacity: 1;
+/* `is-settled` lo pone island.ts cuando el resorte terminó: el panel nunca
+   se ve a medio tamaño. */
+.island[data-state="open"].is-settled .panel {
   visibility: visible;
-  scale: 1;
   pointer-events: auto;
-  transition:
-    opacity 0.3s ease 0.1s,
-    scale 0.5s cubic-bezier(0.22, 1.2, 0.36, 1) 0.05s,
-    visibility 0s;
+  animation: enter 0.22s ease;
 }
 
-/* ── Riel de opciones ── */
-.rail {
-  width: 118px;
-  flex-shrink: 0;
+.top {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+.brand {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 5px;
-  border-radius: 20px;
-  background: rgba(240, 245, 255, 0.045);
-  border: 1px solid var(--line);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.brand-avatar {
+  width: 30px;
+  height: 30px;
+}
+.brand-avatar .mascot {
+  width: 100%;
+  height: 100%;
+}
+.pill {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  color: var(--ok);
+  background: rgba(var(--ok-rgb), 0.13);
+  white-space: nowrap;
+}
+.pill-busy {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.15);
+}
+.pill-warn {
+  color: var(--warn);
+  background: rgba(var(--warn-rgb), 0.14);
+}
+.pill-error {
+  color: var(--danger);
+  background: rgba(var(--danger-rgb), 0.15);
+}
+
+/* Pestañas: un control segmentado, solo el icono y la palabra. */
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(var(--surface-rgb), 0.9);
+  border: 1px solid rgba(var(--line-rgb), 0.6);
 }
 .tab {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 9px;
+  gap: 6px;
+  padding: 5px 12px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 999px;
   background: transparent;
   color: var(--dim);
-  font-weight: 600;
   font-size: 12.5px;
-  text-align: left;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
-.tab svg,
-.rail-close svg {
-  width: 15px;
-  height: 15px;
-  fill: currentColor;
-  flex-shrink: 0;
+.tab svg {
+  width: 16px;
+  height: 16px;
 }
 .tab:hover {
-  color: var(--title);
-  background: rgba(240, 245, 255, 0.06);
+  color: var(--text);
 }
 .tab.is-on {
-  background: rgba(var(--accent-rgb), 0.2);
-  color: var(--title);
+  background: var(--accent);
+  color: var(--on-accent);
 }
-.rail-close {
-  margin-top: auto;
-  display: grid;
-  place-items: center;
-  height: 24px;
+
+.win {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.win-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  min-width: 30px;
+  justify-content: center;
+  padding: 0 7px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 999px;
   background: transparent;
-  color: var(--meta);
+  color: var(--dim);
   cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    padding 0.25s;
 }
-.rail-close:hover {
-  color: var(--title);
-  background: rgba(240, 245, 255, 0.08);
+.win-btn:hover {
+  background: rgba(var(--text-rgb), 0.08);
+  color: var(--text);
+}
+.win-quit:hover {
+  color: var(--danger);
+  background: rgba(var(--danger-rgb), 0.12);
+}
+.win-quit-label {
+  display: none;
+  font-size: 12px;
+  font-weight: 700;
+}
+.win-quit.is-armed {
+  padding: 0 11px 0 9px;
+  color: var(--on-accent);
+  background: var(--danger);
+}
+.win-quit.is-armed .win-quit-label {
+  display: inline;
 }
 
 .content {
-  flex: 1;
-  min-width: 0;
+  position: relative;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  padding: 6px 0 10px;
 }
-
-/* ── Inicio ── */
-#view-inicio.is-on {
-  flex-direction: row;
-  gap: 8px;
-}
-.card {
-  border-radius: 18px;
-  background: rgba(240, 245, 255, 0.045);
-  border: 1px solid var(--line);
-}
-.hero {
-  flex: 1.15;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-}
-.avatar {
-  width: 72px;
-  height: 72px;
-  flex-shrink: 0;
-  object-fit: contain;
-  border-radius: 20px;
-  padding: 6px;
-  background: rgba(var(--accent-rgb), 0.12);
-  border: 1px solid rgba(var(--accent-rgb), 0.3);
-  transition: border-color 0.3s, background 0.3s;
-}
-.avatar-busy,
-.avatar-warn {
-  border-color: rgba(var(--warn-rgb), 0.7);
-  background: rgba(var(--warn-rgb), 0.1);
-}
-.avatar-error {
-  border-color: rgba(var(--danger-rgb), 0.7);
-  background: rgba(var(--danger-rgb), 0.1);
-}
-.avatar-happy {
-  border-color: rgba(var(--ok-rgb), 0.8);
-  background: rgba(var(--ok-rgb), 0.12);
-}
-.avatar-jump {
-  animation: jump 0.7s ease;
-}
-@keyframes jump {
-  30% {
-    transform: translateY(-7px) scale(1.08);
-  }
-  60% {
-    transform: translateY(0) scale(0.97);
-  }
-}
-.hero-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.hero-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.hero-top strong {
-  font-size: 16px;
-  font-weight: 800;
-}
-.hero-text p {
-  margin: 0;
-  font-size: 11.5px;
-  color: var(--dim);
-}
-.hero-next {
-  align-self: flex-start;
-  max-width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.hero-next:hover {
-  text-decoration: underline;
-}
-.tiles {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px;
-  padding: 8px;
-  align-content: center;
-}
-.tile {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-  padding: 6px 9px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: rgba(5, 8, 14, 0.5);
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: border-color 0.2s, scale 0.2s;
-}
-.tile:hover {
-  border-color: rgba(var(--accent-rgb), 0.5);
-  scale: 1.03;
-}
-.tile-dot {
-  width: 14px;
-  height: 10px;
-  border-radius: 5px;
-  flex-shrink: 0;
-}
-.c-ok {
-  background: var(--ok);
-}
-.c-accent {
-  background: var(--accent);
-}
-.c-danger {
-  background: var(--danger);
-}
-.c-warn {
-  background: var(--warn);
-}
-.c-violet {
-  background: #a78bfa;
-}
-.c-pink {
-  background: #f472b6;
-}
-
-.pill {
-  font-size: 10.5px;
-  font-weight: 700;
-  border-radius: 999px;
-  padding: 4px 9px;
-  background: rgba(var(--ok-rgb), 0.14);
-  color: var(--ok);
-  border: 1px solid rgba(var(--ok-rgb), 0.28);
-}
-.pill-busy,
-.pill-warn {
-  background: rgba(var(--warn-rgb), 0.14);
-  color: var(--warn);
-  border-color: rgba(var(--warn-rgb), 0.4);
-}
-.pill-error {
-  background: rgba(var(--danger-rgb), 0.15);
-  color: var(--danger);
-  border-color: rgba(var(--danger-rgb), 0.45);
-}
-
 .view {
   display: none;
   flex: 1;
   min-height: 0;
   flex-direction: column;
+  gap: 8px;
+  animation: enter 0.25s ease;
 }
 .view.is-on {
   display: flex;
 }
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
 #view-camino,
 #view-bitacora {
   overflow-y: auto;
-  gap: 6px;
   padding-right: 4px;
+}
+
+/* ── Inicio ── Archito grande, el saludo, el avance y cuatro accesos. */
+#view-inicio {
+  justify-content: center;
+  gap: 14px;
+}
+.home {
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  align-items: center;
+  gap: 20px;
+  padding: 0 8px;
+}
+.home-buddy {
+  height: 120px;
+}
+.home-buddy .mascot {
+  width: 100%;
+  height: 100%;
+}
+.home-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.home-hello {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--text);
+}
+.home-sub {
+  margin: 0 0 4px;
+  color: var(--dim);
+}
+.home-main .bar {
+  max-width: 340px;
+}
+.home-main .bar-fill {
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+}
+.home-next {
+  align-self: flex-start;
+  margin-top: 8px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.home-next:hover {
+  background: rgba(var(--accent-rgb), 0.26);
+}
+
+.quick {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(var(--line-rgb), 0.7);
+  background: rgba(var(--surface-rgb), 0.85);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    transform 0.2s;
+}
+.tile svg {
+  color: var(--accent);
+}
+.tile:hover {
+  background: var(--surface-high);
+  border-color: rgba(var(--accent-rgb), 0.45);
+  transform: translateY(-1px);
 }
 
 /* ── Chat ── */
@@ -476,22 +836,20 @@ pre {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   padding-right: 4px;
 }
-
 ::-webkit-scrollbar {
   width: 6px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(240, 245, 255, 0.16);
+  background: rgba(var(--text-rgb), 0.16);
   border-radius: 3px;
 }
-
 .msg {
-  max-width: 94%;
-  padding: 9px 12px;
-  border-radius: var(--radius);
+  max-width: 92%;
+  padding: 9px 13px;
+  border-radius: 16px;
   animation: rise 0.22s ease;
   overflow-wrap: anywhere;
 }
@@ -503,28 +861,26 @@ pre {
 }
 .msg-user {
   align-self: flex-end;
-  background: rgba(var(--accent-rgb), 0.22);
-  border: 1px solid rgba(var(--accent-rgb), 0.3);
-  color: var(--title);
-  border-bottom-right-radius: 4px;
+  background: var(--accent);
+  color: var(--on-accent);
+  border-bottom-right-radius: 5px;
 }
 .msg-bot {
   align-self: flex-start;
-  width: 94%;
-  background: rgba(240, 245, 255, 0.055);
-  border: 1px solid var(--line);
-  border-bottom-left-radius: 4px;
+  width: 92%;
+  background: rgba(var(--surface-rgb), 0.9);
+  border: 1px solid rgba(var(--line-rgb), 0.55);
+  border-bottom-left-radius: 5px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
 }
 .status-warn {
-  border-color: rgba(var(--warn-rgb), 0.38);
+  border-color: rgba(var(--warn-rgb), 0.45);
 }
 .status-error {
-  border-color: rgba(var(--danger-rgb), 0.45);
+  border-color: rgba(var(--danger-rgb), 0.5);
 }
-
 .text p,
 .step-doc p,
 .hint p {
@@ -540,10 +896,11 @@ pre {
   padding-left: 4px;
 }
 strong {
-  color: var(--title);
+  color: var(--text);
+  font-weight: 700;
 }
 code {
-  background: var(--code-bg);
+  background: rgba(var(--bg-rgb), 0.7);
   border-radius: 5px;
   padding: 1px 5px;
   color: var(--accent);
@@ -555,51 +912,49 @@ blockquote {
   color: var(--dim);
   font-size: 12.5px;
 }
-
 pre.code {
   margin: 0;
   padding: 9px 11px;
   border-radius: 10px;
-  background: var(--code-bg);
-  border: 1px solid var(--line);
+  background: rgba(var(--bg-rgb), 0.75);
+  border: 1px solid rgba(var(--line-rgb), 0.6);
   color: var(--text);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  max-height: 220px;
+  max-height: 200px;
   overflow-y: auto;
 }
-
 .cmd {
   display: block;
-  padding: 6px 9px;
-  border-radius: 8px;
-  background: var(--code-bg);
-  border: 1px solid var(--line);
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: rgba(var(--bg-rgb), 0.75);
+  border: 1px solid rgba(var(--line-rgb), 0.6);
   color: var(--accent);
   overflow-wrap: anywhere;
 }
-
 .stat-head {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
   color: var(--dim);
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 .stat-value {
-  color: var(--title);
+  color: var(--text);
   font-weight: 600;
 }
 .bar {
-  height: 7px;
-  border-radius: 4px;
-  background: rgba(240, 245, 255, 0.1);
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(var(--text-rgb), 0.1);
   overflow: hidden;
 }
 .bar-fill {
   height: 100%;
-  border-radius: 4px;
-  transition: width 0.6s ease;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.7s cubic-bezier(0.3, 1, 0.4, 1);
 }
 .sev-good {
   background: var(--ok);
@@ -616,7 +971,7 @@ pre.code {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-left: 9px;
+  padding-left: 10px;
   border-left: 2px solid rgba(var(--accent-rgb), 0.35);
 }
 .step-token {
@@ -629,21 +984,22 @@ pre.code {
   margin-top: 2px;
 }
 
+/* "Así lo harías tú" */
 .learn {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 9px 10px;
-  border-radius: 11px;
-  background: rgba(var(--ok-rgb), 0.07);
-  border: 1px solid rgba(var(--ok-rgb), 0.25);
+  padding: 10px 11px;
+  border-radius: 12px;
+  background: rgba(var(--accent2-rgb), 0.08);
+  border: 1px solid rgba(var(--accent2-rgb), 0.28);
 }
 .learn-title {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--ok);
+  color: var(--accent2);
 }
 .learn-note {
   margin: 0;
@@ -651,17 +1007,18 @@ pre.code {
   font-size: 12.5px;
 }
 
+/* Acciones propuestas */
 .action {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px;
-  border-radius: 11px;
-  background: rgba(5, 8, 14, 0.35);
+  gap: 7px;
+  padding: 10px 11px;
+  border-radius: 12px;
+  background: rgba(var(--bg-rgb), 0.45);
   border: 1px solid rgba(var(--accent-rgb), 0.3);
 }
 .action-confirm {
-  border-color: rgba(var(--warn-rgb), 0.4);
+  border-color: rgba(var(--warn-rgb), 0.42);
 }
 .action-danger {
   border-color: rgba(var(--danger-rgb), 0.6);
@@ -716,7 +1073,6 @@ pre.code {
 .action-result.is-bad p {
   color: var(--danger);
 }
-
 .row {
   display: flex;
   flex-wrap: wrap;
@@ -727,15 +1083,17 @@ pre.code {
   flex: 1;
   min-width: 0;
 }
-
 .btn {
-  border-radius: 9px;
-  padding: 5px 11px;
-  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 13px;
+  border: 1px solid rgba(var(--line-rgb), 0.9);
   background: transparent;
   cursor: pointer;
   font-weight: 600;
   font-size: 12.5px;
+  transition:
+    background 0.2s,
+    filter 0.2s;
 }
 .btn:disabled {
   opacity: 0.55;
@@ -745,38 +1103,43 @@ pre.code {
   color: var(--dim);
 }
 .btn-ghost:hover {
-  color: var(--title);
-  background: rgba(240, 245, 255, 0.08);
+  color: var(--text);
+  background: rgba(var(--text-rgb), 0.07);
 }
 .btn-run {
-  color: #0b1220;
   border-color: transparent;
+  color: #10131a;
 }
 .btn-safe {
   background: var(--ok);
 }
 .btn-confirm {
-  background: var(--warn);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 .btn-danger {
   background: var(--danger);
 }
+:root[data-scheme="light"] .btn-safe,
+:root[data-scheme="light"] .btn-danger {
+  color: #fff;
+}
 .btn-run:hover:not(:disabled) {
-  filter: brightness(1.1);
+  filter: brightness(1.08);
 }
 
 .typing {
   width: auto;
   flex-direction: row;
   gap: 4px;
-  padding: 12px;
+  padding: 12px 14px;
 }
 .typing span {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--dim);
-  animation: blink 1.1s infinite;
+  animation: typing 1.1s infinite;
 }
 .typing span:nth-child(2) {
   animation-delay: 0.18s;
@@ -784,7 +1147,7 @@ pre.code {
 .typing span:nth-child(3) {
   animation-delay: 0.36s;
 }
-@keyframes blink {
+@keyframes typing {
   50% {
     opacity: 0.25;
     transform: translateY(-2px);
@@ -793,7 +1156,7 @@ pre.code {
 
 .chips {
   display: flex;
-  gap: 5px;
+  gap: 6px;
   overflow-x: auto;
   flex-shrink: 0;
   scrollbar-width: none;
@@ -806,7 +1169,7 @@ pre.code {
 }
 .chip {
   border-radius: 999px;
-  padding: 4px 10px;
+  padding: 4px 11px;
   border: 1px solid rgba(var(--accent-rgb), 0.3);
   background: rgba(var(--accent-rgb), 0.08);
   color: var(--accent);
@@ -814,51 +1177,65 @@ pre.code {
   cursor: pointer;
   flex-shrink: 0;
   white-space: nowrap;
+  transition: background 0.2s;
 }
 .chip:hover {
   background: rgba(var(--accent-rgb), 0.2);
 }
 
+/* La caja de texto, abajo en todas las vistas. */
 .composer {
   display: flex;
-  gap: 6px;
-  flex-shrink: 0;
+  gap: 8px;
+  padding: 5px 5px 5px 16px;
+  border-radius: 999px;
+  background: rgba(var(--surface-rgb), 0.95);
+  border: 1px solid rgba(var(--line-rgb), 0.7);
+  transition: border-color 0.2s;
+}
+.composer:focus-within {
+  border-color: rgba(var(--accent-rgb), 0.6);
 }
 .composer input {
   flex: 1;
   min-width: 0;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: rgba(240, 245, 255, 0.05);
+  border: 0;
+  background: transparent;
   outline: none;
 }
-.composer input:focus {
-  border-color: rgba(var(--accent-rgb), 0.6);
-}
 .composer input::placeholder {
-  color: var(--meta);
+  color: var(--dim);
+  opacity: 0.8;
 }
 .send {
-  width: 34px;
-  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   border: 0;
   background: var(--accent);
-  color: #0b1220;
-  font-weight: 800;
+  color: var(--on-accent);
   cursor: pointer;
+  transition: transform 0.2s;
+}
+.send:hover {
+  transform: translateX(2px);
 }
 
 /* ── Camino ── */
 .path-head {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   flex-shrink: 0;
-  padding: 7px 12px;
+  padding: 10px 14px;
   border-radius: var(--radius);
   background: rgba(var(--accent-rgb), 0.1);
-  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+}
+.path-head .bar-fill {
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
 }
 .path-level {
   display: flex;
@@ -872,20 +1249,25 @@ pre.code {
 .path-meta {
   color: var(--dim);
   font-size: 12.5px;
+}
+.path-meta {
   margin: 0;
 }
 .banner {
+  flex-shrink: 0;
   padding: 9px 12px;
-  border-radius: var(--radius);
+  border-radius: 12px;
   background: rgba(var(--ok-rgb), 0.12);
   border: 1px solid rgba(var(--ok-rgb), 0.35);
-  color: var(--title);
+  color: var(--text);
   animation: rise 0.3s ease;
 }
 .hint {
-  padding: 8px 12px;
-  border-radius: var(--radius);
-  border: 1px dashed var(--line);
+  flex-shrink: 0;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(var(--warn-rgb), 0.08);
+  border: 1px solid rgba(var(--warn-rgb), 0.28);
   color: var(--dim);
   font-size: 12.5px;
 }
@@ -895,13 +1277,14 @@ pre.code {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: var(--meta);
+  color: var(--dim);
 }
 .mission {
-  border-radius: var(--radius);
-  border: 1px solid var(--line);
-  background: rgba(240, 245, 255, 0.045);
   flex-shrink: 0;
+  border-radius: 12px;
+  background: rgba(var(--surface-rgb), 0.85);
+  border: 1px solid rgba(var(--line-rgb), 0.55);
+  overflow: hidden;
 }
 .mission-active {
   border-color: rgba(var(--accent-rgb), 0.5);
@@ -913,16 +1296,16 @@ pre.code {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   padding: 9px 12px;
   border: 0;
   background: transparent;
-  text-align: left;
   cursor: pointer;
+  text-align: left;
 }
 .mission-icon {
-  width: 18px;
-  color: var(--meta);
+  color: var(--dim);
+  width: 16px;
 }
 .mission-done .mission-icon {
   color: var(--ok);
@@ -933,17 +1316,17 @@ pre.code {
 .mission-title {
   flex: 1;
   font-weight: 600;
-  color: var(--title);
 }
 .mission-xp {
   font-size: 11.5px;
-  color: var(--meta);
+  color: var(--accent2);
+  font-weight: 700;
 }
 .mission-body {
   display: none;
   flex-direction: column;
   gap: 8px;
-  padding: 0 12px 12px;
+  padding: 0 12px 12px 38px;
 }
 .mission.is-open .mission-body {
   display: flex;
@@ -963,10 +1346,8 @@ pre.code {
 }
 .mission-steps {
   margin: 0;
-  padding-left: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  padding-left: 18px;
+  font-size: 12.5px;
 }
 .mission-steps p {
   margin: 0;
@@ -974,39 +1355,45 @@ pre.code {
 
 /* ── Bitácora ── */
 .log-row {
+  flex-shrink: 0;
   display: grid;
-  grid-template-columns: 96px 1fr auto;
-  align-items: start;
-  gap: 9px;
+  grid-template-columns: 120px 1fr auto;
+  align-items: center;
+  gap: 10px;
   padding: 8px 12px;
   border-radius: 11px;
-  border: 1px solid var(--line);
-  background: rgba(240, 245, 255, 0.045);
+  border: 1px solid transparent;
+  background: rgba(var(--surface-rgb), 0.7);
   text-align: left;
   cursor: pointer;
-  flex-shrink: 0;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 .log-row:hover {
-  border-color: rgba(var(--accent-rgb), 0.45);
+  background: var(--surface-high);
+  border-color: rgba(var(--accent-rgb), 0.35);
 }
 .log-name {
-  background: none;
-  padding: 0;
+  justify-self: start;
   font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .log-doc {
   color: var(--dim);
   font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .log-times {
-  color: var(--meta);
+  color: var(--dim);
   font-size: 11.5px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation: none !important;
     transition: none !important;
   }

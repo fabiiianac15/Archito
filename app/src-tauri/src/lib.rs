@@ -7,8 +7,9 @@
 mod layer;
 
 use archito_core::lessons::{CheckResult, PathView};
+use archito_core::theme::{self, Palette};
 use archito_core::{Archito, ExecResult, LogEntry, Response};
-use tauri::{Emitter, Manager, State, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 
 type Bot<'a> = State<'a, Archito>;
 
@@ -73,12 +74,53 @@ fn logbook(core: Bot) -> Vec<LogEntry> {
     with(&core, |a| a.logbook())
 }
 
+/// Los colores del escritorio. Leer gsettings tarda un poco: va fuera del hilo
+/// de la ventana.
+#[tauri::command(async)]
+fn palette() -> Palette {
+    theme::detect()
+}
+
+/// Cierra Archito del todo. La página ya se despidió antes de llamarlo.
+#[tauri::command]
+fn quit(app: AppHandle) {
+    app.exit(0);
+}
+
+/// Vigila los archivos de color del escritorio. Cuando cambian (otro fondo de
+/// pantalla con matugen, otro esquema en KDE), avisa a la página con la paleta
+/// nueva. Mirar la fecha de siete archivos cada dos segundos no cuesta nada.
+fn watch_theme(app: AppHandle) {
+    std::thread::spawn(move || {
+        let mut seen = theme::fingerprint();
+        let mut last = theme::detect();
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            let now = theme::fingerprint();
+            if now == seen {
+                continue;
+            }
+            seen = now;
+            // Los generadores escriben varios archivos seguidos: se espera a
+            // que terminen antes de leer.
+            std::thread::sleep(std::time::Duration::from_millis(400));
+            let palette = theme::detect();
+            if palette != last {
+                let _ = app.emit("theme", &palette);
+                last = palette;
+            }
+        }
+    });
+}
+
 /// Lo que se pidió al lanzar el panel: `archito-panel --camino` o
 /// `archito-panel cuánta ram tengo`.
 #[derive(serde::Serialize, Clone, Default)]
 struct Launch {
     view: &'static str,
     text: String,
+    /// `archito-panel --cerrar`: la isla se despide y el programa termina.
+    quit: bool,
 }
 
 fn parse_launch(args: &[String]) -> Launch {
@@ -88,6 +130,7 @@ fn parse_launch(args: &[String]) -> Launch {
         match arg.as_str() {
             "--camino" => launch.view = "camino",
             "--bitacora" => launch.view = "bitacora",
+            "--cerrar" | "--quit" => launch.quit = true,
             other if other.starts_with("--") => {}
             other => words.push(other),
         }
@@ -99,6 +142,13 @@ fn parse_launch(args: &[String]) -> Launch {
 #[tauri::command]
 fn launch_request() -> Launch {
     parse_launch(&std::env::args().collect::<Vec<_>>())
+}
+
+/// Errores de la página, al registro de ARCHITO_DEBUG=1 (en release no hay
+/// consola de WebKit donde verlos).
+#[tauri::command]
+fn log_page(message: String) {
+    layer::debug(&format!("página: {message}"));
 }
 
 /// La página dibuja cuadros de verdad.
@@ -129,7 +179,7 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             let Some(win) = app.get_webview_window("panel") else { return };
             let launch = parse_launch(&args);
-            if launch.view.is_empty() && launch.text.is_empty() {
+            if launch.view.is_empty() && launch.text.is_empty() && !launch.quit {
                 let _ = win.emit("toggle", ());
             } else {
                 let _ = win.emit("launch", launch);
@@ -148,7 +198,10 @@ pub fn run() {
             check_mission,
             logbook,
             launch_request,
+            palette,
+            quit,
             frame_painted,
+            log_page,
             set_region,
             set_expanded
         ])
@@ -157,6 +210,7 @@ pub fn run() {
                 layer::attach(&win);
                 let _ = win.show();
             }
+            watch_theme(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())

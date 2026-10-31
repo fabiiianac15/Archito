@@ -84,10 +84,32 @@ export interface LogEntry {
 export interface Launch {
   view: "" | "camino" | "bitacora";
   text: string;
+  quit: boolean;
+}
+
+/** Colores del escritorio en #rrggbb (archito-core/src/theme.rs). */
+export interface Palette {
+  source: string;
+  dark: boolean;
+  bg: string;
+  surface: string;
+  surface_high: string;
+  text: string;
+  dim: string;
+  line: string;
+  accent: string;
+  on_accent: string;
+  accent2: string;
+  ok: string;
+  warn: string;
+  danger: string;
 }
 
 export const api = {
   launchRequest: () => invoke<Launch>("launch_request"),
+  palette: () => invoke<Palette>("palette"),
+  quit: () => invoke<void>("quit"),
+  logPage: (message: string) => invoke<void>("log_page", { message }),
   framePainted: () => invoke<void>("frame_painted"),
   welcome: () => invoke<Reply>("welcome"),
   ask: (text: string) => invoke<Reply>("ask", { text }),

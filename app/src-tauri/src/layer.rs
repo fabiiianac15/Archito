@@ -156,7 +156,7 @@ pub fn frame_painted() {
 }
 
 /// Trazas de arranque con ARCHITO_DEBUG=1.
-fn debug(message: &str) {
+pub(crate) fn debug(message: &str) {
     static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
     let start = START.get_or_init(std::time::Instant::now);
     if std::env::var_os("ARCHITO_DEBUG").is_some() {

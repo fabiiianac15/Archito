@@ -14,8 +14,8 @@
       {
         "label": "panel",
         "title": "Archito",
-        "width": 720,
-        "height": 290,
+        "width": 760,
+        "height": 440,
         "resizable": false,
         "decorations": false,
         "transparent": true,

@@ -2,7 +2,14 @@ import { listen } from "@tauri-apps/api/event";
 
 import { api, type Action, type Launch, type Mission, type PathView, type Reply } from "./api";
 import { add, button, copy, el, rich } from "./dom";
+import { farewell, introduce } from "./intro";
 import { Island } from "./island";
+import { createMascot, pose, startLife, type Pose } from "./mascot";
+import { followDesktop } from "./theme";
+
+// Cualquier error de la página llega al registro de ARCHITO_DEBUG=1.
+window.addEventListener("error", (e) => void api.logPage(`${e.message} (${e.filename}:${e.lineno})`));
+window.addEventListener("unhandledrejection", (e) => void api.logPage(`promesa: ${String(e.reason)}`));
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -11,12 +18,28 @@ const chips = $<HTMLDivElement>("chips");
 const input = $<HTMLInputElement>("input");
 const pill = $<HTMLSpanElement>("pill");
 const subtitle = $<HTMLParagraphElement>("subtitle");
-const avatar = $<HTMLImageElement>("avatar");
 const viewCamino = $<HTMLElement>("view-camino");
 const viewBitacora = $<HTMLElement>("view-bitacora");
 
 const island = new Island($<HTMLElement>("island"));
 const compactText = $<HTMLSpanElement>("compact-text");
+
+// Tres Archito: la cara en la píldora, la cara en la cabecera y el cuerpo
+// entero en el inicio. Los tres cambian de pose a la vez.
+const faceSmall = createMascot("mascot-pill", true);
+const faceHeader = createMascot("mascot-brand", true);
+const buddy = createMascot("mascot-home");
+$("compact-avatar").append(faceSmall);
+$("brand-avatar").append(faceHeader);
+$("home-buddy").append(buddy);
+const mascots = [faceSmall, faceHeader, buddy];
+
+// Parpadeos y miradas, solo en los Archito que se ven ahora.
+startLife(() => (island.isOpen ? (document.querySelector("#view-inicio.is-on") ? [faceHeader, buddy] : [faceHeader]) : [faceSmall]));
+
+function poseAll(next: Pose, back?: Pose, ms = 0) {
+  for (const m of mascots) pose(m, next, back, ms);
+}
 
 let busy = false;
 /** Misión que se queda desplegada al volver a pintar el camino. */
@@ -31,6 +54,14 @@ type Mood = "idle" | "busy" | "warn" | "error" | "happy";
 /** Mientras dura el saludo de entrada, la píldora no cambia de texto. */
 let greetingUntil = 0;
 
+const MOOD_POSE: Record<Mood, Pose> = {
+  idle: "idle",
+  busy: "think",
+  warn: "worried",
+  error: "error",
+  happy: "happy",
+};
+
 const COMPACT_TEXT: Record<Mood, string> = {
   idle: "Archito",
   busy: "pensando",
@@ -42,20 +73,42 @@ const COMPACT_TEXT: Record<Mood, string> = {
 function setMood(mood: Mood, text: string) {
   pill.className = `pill pill-${mood}`;
   pill.textContent = text;
-  avatar.className = `avatar avatar-${mood}`;
+  poseAll(MOOD_POSE[mood], mood === "happy" ? "idle" : undefined, 2400);
   // La isla recogida cuenta lo mismo con color y una palabra.
   island.root.dataset.mood = mood;
   if (performance.now() > greetingUntil) compactText.textContent = COMPACT_TEXT[mood];
 }
 
 function celebrate() {
-  avatar.classList.remove("avatar-jump");
-  void avatar.offsetWidth; // reinicia la animación
-  avatar.classList.add("avatar-jump");
+  poseAll("happy", "idle", 2400);
   island.bump();
 }
 
+// ── Sueño ─────────────────────────────────────────────────────────────────────
+// Recogida y sin que nadie le hable durante un rato, Archito se duerme. Abrir
+// la isla o cualquier respuesta lo despierta.
+
+const SLEEP_AFTER = 3 * 60 * 1000;
+let sleepTimer = 0;
+let asleep = false;
+
+function wake() {
+  window.clearTimeout(sleepTimer);
+  if (asleep) {
+    asleep = false;
+    poseAll("idle");
+    compactText.textContent = COMPACT_TEXT.idle;
+  }
+  sleepTimer = window.setTimeout(() => {
+    if (island.isOpen || busy || island.root.dataset.mood !== "idle") return wake();
+    asleep = true;
+    poseAll("sleep");
+    compactText.textContent = "zzz…";
+  }, SLEEP_AFTER);
+}
+
 async function expand() {
+  wake();
   if (island.isOpen) return;
   greetingUntil = 0;
   compactText.textContent = COMPACT_TEXT[(island.root.dataset.mood as Mood) ?? "idle"];
@@ -66,8 +119,40 @@ async function expand() {
 function collapse() {
   if (!island.isOpen) return;
   input.blur();
+  disarmQuit();
   void island.go("pill");
+  wake();
 }
+
+// ── Cerrar el programa ────────────────────────────────────────────────────────
+// Dos clics, como lo peligroso: el primero pregunta, el segundo se despide.
+
+const quitButton = $<HTMLButtonElement>("quit");
+let quitTimer = 0;
+
+function disarmQuit() {
+  window.clearTimeout(quitTimer);
+  quitButton.classList.remove("is-armed");
+}
+
+async function quit() {
+  disarmQuit();
+  input.blur();
+  if (island.isOpen) await island.go("pill");
+  compactText.textContent = "¡Hasta luego!";
+  greetingUntil = Number.POSITIVE_INFINITY;
+  await farewell(island, faceSmall);
+  await api.quit();
+}
+
+quitButton.addEventListener("click", () => {
+  if (!quitButton.classList.contains("is-armed")) {
+    quitButton.classList.add("is-armed");
+    quitTimer = window.setTimeout(disarmQuit, 3200);
+    return;
+  }
+  void quit();
+});
 
 function scrollDown() {
   requestAnimationFrame(() => (messages.scrollTop = messages.scrollHeight));
@@ -207,6 +292,7 @@ function addBot(reply: Reply) {
   for (const action of reply.actions) bubble.append(actionCard(action));
   messages.append(bubble);
   setChips(reply.chips);
+  wake();
   const mood: Mood = reply.status === "error" ? "error" : reply.status === "warn" ? "warn" : "idle";
   setMood(mood, mood === "idle" ? "listo" : mood === "warn" ? "atención" : "error");
   scrollDown();
@@ -412,6 +498,7 @@ window.addEventListener("keydown", (event) => {
 void listen("toggle", () => (island.isOpen ? collapse() : void expand()));
 
 function applyLaunch(launch: Launch) {
+  if (launch.quit) return void quit();
   if (!launch.view && !launch.text) return;
   void expand();
   if (launch.view) showView(launch.view);
@@ -430,15 +517,24 @@ const countFrame = () => {
 };
 requestAnimationFrame(countFrame);
 
+function greetingWord(): string {
+  const hour = new Date().getHours();
+  return hour < 12 ? "Buenos días" : hour < 19 ? "Buenas tardes" : "Buenas noches";
+}
+
 void (async () => {
-  compactText.textContent = "¡Hola! Soy Archito";
-  greetingUntil = performance.now() + 2900;
-  window.setTimeout(() => (compactText.textContent = COMPACT_TEXT[(island.root.dataset.mood as Mood) ?? "idle"]), 2950);
-  island.greet();
+  await followDesktop();
+  $("home-hello").textContent = `${greetingWord()}.`;
+  const launch = await api.launchRequest().catch((): Launch => ({ view: "", text: "", quit: false }));
+  if (launch.quit) return void api.quit();
+  // La entrada corre a la vez que se carga lo demás.
+  const entrance = introduce(island, $("compact-avatar"), "¡Hola! Soy Archito");
+  wake();
   try {
     addBot(await api.welcome());
     await refreshSubtitle();
-    applyLaunch(await api.launchRequest());
+    await entrance;
+    applyLaunch(launch);
   } catch (err) {
     messages.append(el("div", "msg msg-bot status-error", `No pude hablar con el núcleo: ${String(err)}`));
   }

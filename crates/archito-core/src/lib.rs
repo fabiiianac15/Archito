@@ -23,6 +23,7 @@ pub mod model;
 pub mod probe;
 pub mod safety;
 pub mod text;
+pub mod theme;
 
 pub use brain::{Archito, LogEntry};
 pub use model::{Action, ExecResult, Learn, Level, Response, Stat, Status, Step};
