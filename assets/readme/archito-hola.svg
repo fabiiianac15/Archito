@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 230" width="400" height="230" role="img" aria-label="Archito baja colgado de un hilo y saluda">
+<title>Archito saluda</title>
+<style>.fill{fill:#1793d1}.limb{fill:none;stroke:#1793d1;stroke-width:3.4;stroke-linecap:round}
+.ln{fill:none;stroke:#14111a;stroke-width:1.4;stroke-linecap:round}
+g,path,ellipse{transform-box:view-box}
+.bob{transform-origin:60px 112px}.arm-l{transform-origin:35px 64px}.arm-r{transform-origin:85px 64px}
+.eyes{transform-origin:60px 56px}.brow-l{transform-origin:49px 49px}.brow-r{transform-origin:71px 49px}
+text{font-family:"Inter","Segoe UI",Helvetica,Arial,sans-serif}
+.drop{animation:drop 7s cubic-bezier(.3,.7,.4,1) infinite}
+@keyframes drop{0%{transform:translateY(-240px)}11%{transform:translateY(14px)}14%{transform:translateY(-6px)}17%,86%{transform:translateY(0)}100%{transform:translateY(-240px)}}
+.hero .arm-l{animation:wave 7s ease-in-out infinite}
+@keyframes wave{0%,19.5%{transform:rotate(0)}20%{transform:rotate(134deg)}23%{transform:rotate(96deg)}26%{transform:rotate(134deg)}29%{transform:rotate(96deg)}32%{transform:rotate(134deg)}35%{transform:rotate(96deg)}38%{transform:rotate(134deg)}41%{transform:rotate(96deg)}44%{transform:rotate(134deg)}47%{transform:rotate(96deg)}50%{transform:rotate(134deg)}53%{transform:rotate(96deg)}56%{transform:rotate(134deg)}59%{transform:rotate(96deg)}62%{transform:rotate(134deg)}65%{transform:rotate(96deg)}68%{transform:rotate(134deg)}70%,100%{transform:rotate(0)}}
+.hero .eyes{animation:blink 7s infinite}
+@keyframes blink{0%,44%,46.5%,76%,78.5%,100%{transform:scaleY(1)}45%,77%{transform:scaleY(.1)}}
+.bubble{animation:pop 7s infinite;transform-origin:248px 112px;transform-box:view-box}
+@keyframes pop{0%,19%{opacity:0;transform:scale(.6)}23%,70%{opacity:1;transform:scale(1)}74%,100%{opacity:0;transform:scale(.9)}}
+</style>
+<g class="drop">
+  <line x1="170" y1="-260" x2="170" y2="58" stroke="#8b949e" stroke-width="1.5"/>
+  <g class="hero" transform="translate(95 49) scale(1.25)"><defs><mask id="cuth" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="124"><rect width="120" height="124" fill="#fff"/><path d="M49 31 Q57 37 64.5 42.5 Q55 40 47.6 34.2 Z"/></mask></defs>
+<g class="bob">
+<path class="limb" d="M52 95 L51 109"/><ellipse cx="48.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<path class="limb" d="M68 95 L69 109"/><ellipse cx="71.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<g class="arm-l"><path class="limb" d="M36 64 Q26 66 22 80"/><circle cx="21.6" cy="82.5" r="3.6" class="fill"/></g>
+<g class="arm-r"><path class="limb" d="M84 64 Q94 66 98 80"/><circle cx="98.4" cy="82.5" r="3.6" class="fill"/></g>
+<path d="M60 7 L104 104 Q88 95 73 96 C73 79 68 71 60 71 C52 71 47 79 47 96 Q32 95 16 104 Z" class="fill" mask="url(#cuth)"/>
+<g class="face"><g class="brows"><path class="ln brow-l" d="M45.5 49.5 Q49.5 47 53 49.5"/><path class="ln brow-r" d="M67 49.5 Q70.5 47 74.5 49.5"/></g><g class="eyes"><ellipse cx="49.5" cy="56" rx="3.1" ry="4.1" fill="#14111a"/><ellipse cx="70.5" cy="56" rx="3.1" ry="4.1" fill="#14111a"/><circle cx="48.4" cy="54.3" r="1.1" fill="#fff"/><circle cx="69.4" cy="54.3" r="1.1" fill="#fff"/></g>
+<ellipse cx="43.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><ellipse cx="76.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><path d="M55.5 61.5 Q60 62.5 64.5 61.5 Q63.6 67.5 60 67.5 Q56.4 67.5 55.5 61.5 Z" fill="#14111a"/><path d="M57.4 65.8 Q60 64.2 62.6 65.8 Q61.6 67.4 60 67.4 Q58.4 67.4 57.4 65.8 Z" fill="#f27b84"/></g>
+</g></g>
+  <g class="bubble">
+    <rect x="246" y="78" width="146" height="34" rx="14" fill="#ffffff" stroke="#d0d7de"/>
+    <path d="M250 104 L238 118 L262 108 Z" fill="#ffffff" stroke="#d0d7de" stroke-linejoin="round"/>
+    <rect x="251" y="98" width="16" height="12" fill="#ffffff"/>
+    <text x="319" y="100" text-anchor="middle" font-size="14" font-weight="600" fill="#1f2328">¡Hola! Soy Archito</text>
+  </g>
+</g>
+<ellipse cx="170" cy="198" rx="40" ry="4" fill="#8b949e" opacity=".25"/>
+</svg>

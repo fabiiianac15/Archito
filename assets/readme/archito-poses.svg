@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 160" width="780" height="160" role="img" aria-label="Las poses de Archito">
+<title>Las poses de Archito</title>
+<style>.fill{fill:#1793d1}.limb{fill:none;stroke:#1793d1;stroke-width:3.4;stroke-linecap:round}
+.ln{fill:none;stroke:#14111a;stroke-width:1.4;stroke-linecap:round}
+g,path,ellipse{transform-box:view-box}
+.bob{transform-origin:60px 112px}.arm-l{transform-origin:35px 64px}.arm-r{transform-origin:85px 64px}
+.eyes{transform-origin:60px 56px}.brow-l{transform-origin:49px 49px}.brow-r{transform-origin:71px 49px}
+text{font-family:"Inter","Segoe UI",Helvetica,Arial,sans-serif}
+.p0 .bob{animation:breathe 3.4s ease-in-out infinite}.p0 .eyes{animation:blink2 4s infinite}.p1 .arm-l{animation:wv .42s ease-in-out infinite alternate}.p2 .face{transform:translate(1.4px,-1.6px)}.p2 .arm-r{transform:rotate(-38deg)}.p2 .bob{animation:ponder 1.8s ease-in-out infinite}.p3 .arm-l{transform:rotate(112deg)}.p3 .arm-r{transform:rotate(-112deg)}.p3 .bob{animation:hop .9s cubic-bezier(.3,.9,.4,1) infinite}.p4 .brow-l{transform:rotate(-16deg)}.p4 .brow-r{transform:rotate(16deg)}.p4 .bob{animation:shiver 1.6s ease-in-out infinite}.p5 .bob{animation:breathe 5s ease-in-out infinite}.p5 .zzz text{animation:drift 3s ease-in-out infinite}.p5 .zzz text:nth-child(2){animation-delay:1.5s}
+@keyframes breathe{50%{transform:translateY(-1.8px) scaleY(1.012)}}
+@keyframes blink2{0%,90%,96%,100%{transform:scaleY(1)}93%{transform:scaleY(.1)}}
+@keyframes wv{from{transform:rotate(92deg)}to{transform:rotate(134deg)}}
+@keyframes ponder{50%{transform:rotate(-3deg) translateY(-1px)}}
+@keyframes hop{30%{transform:translateY(-11px)}55%{transform:translateY(0) scaleY(.93) scaleX(1.04)}72%{transform:translateY(-3px)}}
+@keyframes shiver{0%,70%,100%{transform:translateX(0)}76%,88%{transform:translateX(-1.2px)}82%,94%{transform:translateX(1.2px)}}
+@keyframes drift{0%{opacity:0;transform:translate(0,4px)}30%{opacity:1}100%{opacity:0;transform:translate(5px,-8px)}}
+</style>
+<g class="p0" transform="translate(5 4)"><defs><mask id="cutp0" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="124"><rect width="120" height="124" fill="#fff"/><path d="M49 31 Q57 37 64.5 42.5 Q55 40 47.6 34.2 Z"/></mask></defs>
+<g class="bob">
+<path class="limb" d="M52 95 L51 109"/><ellipse cx="48.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<path class="limb" d="M68 95 L69 109"/><ellipse cx="71.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<g class="arm-l"><path class="limb" d="M36 64 Q26 66 22 80"/><circle cx="21.6" cy="82.5" r="3.6" class="fill"/></g>
+<g class="arm-r"><path class="limb" d="M84 64 Q94 66 98 80"/><circle cx="98.4" cy="82.5" r="3.6" class="fill"/></g>
+<path d="M60 7 L104 104 Q88 95 73 96 C73 79 68 71 60 71 C52 71 47 79 47 96 Q32 95 16 104 Z" class="fill" mask="url(#cutp0)"/>
+<g class="face"><g class="brows"><path class="ln brow-l" d="M45.5 49.5 Q49.5 47 53 49.5"/><path class="ln brow-r" d="M67 49.5 Q70.5 47 74.5 49.5"/></g><g class="eyes"><ellipse cx="49.5" cy="56" rx="3.1" ry="4.1" fill="#14111a"/><ellipse cx="70.5" cy="56" rx="3.1" ry="4.1" fill="#14111a"/><circle cx="48.4" cy="54.3" r="1.1" fill="#fff"/><circle cx="69.4" cy="54.3" r="1.1" fill="#fff"/></g>
+<ellipse cx="43.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><ellipse cx="76.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><path d="M55.5 61.5 Q60 62.5 64.5 61.5 Q63.6 67.5 60 67.5 Q56.4 67.5 55.5 61.5 Z" fill="#14111a"/><path d="M57.4 65.8 Q60 64.2 62.6 65.8 Q61.6 67.4 60 67.4 Q58.4 67.4 57.4 65.8 Z" fill="#f27b84"/></g>
+</g></g><text x="65" y="150" text-anchor="middle" font-size="13" fill="#8b949e">en reposo</text><g class="p1" transform="translate(135 4)"><defs><mask id="cutp1" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="124"><rect width="120" height="124" fill="#fff"/><path d="M49 31 Q57 37 64.5 42.5 Q55 40 47.6 34.2 Z"/></mask></defs>
+<g class="bob">
+<path class="limb" d="M52 95 L51 109"/><ellipse cx="48.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<path class="limb" d="M68 95 L69 109"/><ellipse cx="71.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<g class="arm-l"><path class="limb" d="M36 64 Q26 66 22 80"/><circle cx="21.6" cy="82.5" r="3.6" class="fill"/></g>
+<g class="arm-r"><path class="limb" d="M84 64 Q94 66 98 80"/><circle cx="98.4" cy="82.5" r="3.6" class="fill"/></g>
+<path d="M60 7 L104 104 Q88 95 73 96 C73 79 68 71 60 71 C52 71 47 79 47 96 Q32 95 16 104 Z" class="fill" mask="url(#cutp1)"/>
+<g class="face"><g class="brows"><path class="ln brow-l" d="M45.5 49.5 Q49.5 47 53 49.5"/><path class="ln brow-r" d="M67 49.5 Q70.5 47 74.5 49.5"/></g><g class="eyes"><ellipse cx="49.5" cy="56" rx="3.1" ry="4.1" fill="#14111a"/><ellipse cx="70.5" cy="56" rx="3.1" ry="4.1" fill="#14111a"/><circle cx="48.4" cy="54.3" r="1.1" fill="#fff"/><circle cx="69.4" cy="54.3" r="1.1" fill="#fff"/></g>
+<ellipse cx="43.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><ellipse cx="76.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><path d="M55.5 61.5 Q60 62.5 64.5 61.5 Q63.6 67.5 60 67.5 Q56.4 67.5 55.5 61.5 Z" fill="#14111a"/><path d="M57.4 65.8 Q60 64.2 62.6 65.8 Q61.6 67.4 60 67.4 Q58.4 67.4 57.4 65.8 Z" fill="#f27b84"/></g>
+</g></g><text x="195" y="150" text-anchor="middle" font-size="13" fill="#8b949e">saluda</text><g class="p2" transform="translate(265 4)"><defs><mask id="cutp2" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="124"><rect width="120" height="124" fill="#fff"/><path d="M49 31 Q57 37 64.5 42.5 Q55 40 47.6 34.2 Z"/></mask></defs>
+<g class="bob">
+<path class="limb" d="M52 95 L51 109"/><ellipse cx="48.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<path class="limb" d="M68 95 L69 109"/><ellipse cx="71.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<g class="arm-l"><path class="limb" d="M36 64 Q26 66 22 80"/><circle cx="21.6" cy="82.5" r="3.6" class="fill"/></g>
+<g class="arm-r"><path class="limb" d="M84 64 Q94 66 98 80"/><circle cx="98.4" cy="82.5" r="3.6" class="fill"/></g>
+<path d="M60 7 L104 104 Q88 95 73 96 C73 79 68 71 60 71 C52 71 47 79 47 96 Q32 95 16 104 Z" class="fill" mask="url(#cutp2)"/>
+<g class="face"><g class="brows"><path class="ln brow-l" d="M45.5 49.5 Q49.5 47 53 49.5"/><path class="ln brow-r" d="M67 49.5 Q70.5 47 74.5 49.5"/></g><g class="eyes"><ellipse cx="49.5" cy="56" rx="3.1" ry="4.1" fill="#14111a"/><ellipse cx="70.5" cy="56" rx="3.1" ry="4.1" fill="#14111a"/><circle cx="48.4" cy="54.3" r="1.1" fill="#fff"/><circle cx="69.4" cy="54.3" r="1.1" fill="#fff"/></g>
+<ellipse cx="43.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><ellipse cx="76.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><path d="M60 62.2 a2.2 2.6 0 1 0 0.01 0 Z" fill="#14111a"/></g>
+</g></g><text x="325" y="150" text-anchor="middle" font-size="13" fill="#8b949e">piensa</text><g class="p3" transform="translate(395 4)"><defs><mask id="cutp3" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="124"><rect width="120" height="124" fill="#fff"/><path d="M49 31 Q57 37 64.5 42.5 Q55 40 47.6 34.2 Z"/></mask></defs>
+<g class="bob">
+<path class="limb" d="M52 95 L51 109"/><ellipse cx="48.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<path class="limb" d="M68 95 L69 109"/><ellipse cx="71.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<g class="arm-l"><path class="limb" d="M36 64 Q26 66 22 80"/><circle cx="21.6" cy="82.5" r="3.6" class="fill"/></g>
+<g class="arm-r"><path class="limb" d="M84 64 Q94 66 98 80"/><circle cx="98.4" cy="82.5" r="3.6" class="fill"/></g>
+<path d="M60 7 L104 104 Q88 95 73 96 C73 79 68 71 60 71 C52 71 47 79 47 96 Q32 95 16 104 Z" class="fill" mask="url(#cutp3)"/>
+<g class="face"><g class="brows"><path class="ln brow-l" d="M45.5 49.5 Q49.5 47 53 49.5"/><path class="ln brow-r" d="M67 49.5 Q70.5 47 74.5 49.5"/></g><g class="eyes"><ellipse cx="49.5" cy="56" rx="3.1" ry="4.1" fill="#14111a"/><ellipse cx="70.5" cy="56" rx="3.1" ry="4.1" fill="#14111a"/><circle cx="48.4" cy="54.3" r="1.1" fill="#fff"/><circle cx="69.4" cy="54.3" r="1.1" fill="#fff"/></g>
+<ellipse cx="43.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><ellipse cx="76.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><path d="M55.5 61.5 Q60 62.5 64.5 61.5 Q63.6 67.5 60 67.5 Q56.4 67.5 55.5 61.5 Z" fill="#14111a"/><path d="M57.4 65.8 Q60 64.2 62.6 65.8 Q61.6 67.4 60 67.4 Q58.4 67.4 57.4 65.8 Z" fill="#f27b84"/></g>
+</g></g><text x="455" y="150" text-anchor="middle" font-size="13" fill="#8b949e">celebra</text><g class="p4" transform="translate(525 4)"><defs><mask id="cutp4" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="124"><rect width="120" height="124" fill="#fff"/><path d="M49 31 Q57 37 64.5 42.5 Q55 40 47.6 34.2 Z"/></mask></defs>
+<g class="bob">
+<path class="limb" d="M52 95 L51 109"/><ellipse cx="48.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<path class="limb" d="M68 95 L69 109"/><ellipse cx="71.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<g class="arm-l"><path class="limb" d="M36 64 Q26 66 22 80"/><circle cx="21.6" cy="82.5" r="3.6" class="fill"/></g>
+<g class="arm-r"><path class="limb" d="M84 64 Q94 66 98 80"/><circle cx="98.4" cy="82.5" r="3.6" class="fill"/></g>
+<path d="M60 7 L104 104 Q88 95 73 96 C73 79 68 71 60 71 C52 71 47 79 47 96 Q32 95 16 104 Z" class="fill" mask="url(#cutp4)"/>
+<g class="face"><g class="brows"><path class="ln brow-l" d="M45.5 49.5 Q49.5 47 53 49.5"/><path class="ln brow-r" d="M67 49.5 Q70.5 47 74.5 49.5"/></g><g class="eyes"><ellipse cx="49.5" cy="56" rx="3.1" ry="4.1" fill="#14111a"/><ellipse cx="70.5" cy="56" rx="3.1" ry="4.1" fill="#14111a"/><circle cx="48.4" cy="54.3" r="1.1" fill="#fff"/><circle cx="69.4" cy="54.3" r="1.1" fill="#fff"/></g>
+<ellipse cx="43.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><ellipse cx="76.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><path d="M55.5 64.5 Q57.7 62.5 60 64.5 Q62.3 66.5 64.5 64.5" class="ln"/><path d="M79 44 Q81.6 48.6 79 50 Q76.4 48.6 79 44 Z" fill="#9fdcff"/></g>
+</g></g><text x="585" y="150" text-anchor="middle" font-size="13" fill="#8b949e">se preocupa</text><g class="p5" transform="translate(655 4)"><defs><mask id="cutp5" maskUnits="userSpaceOnUse" x="0" y="0" width="120" height="124"><rect width="120" height="124" fill="#fff"/><path d="M49 31 Q57 37 64.5 42.5 Q55 40 47.6 34.2 Z"/></mask></defs>
+<g class="bob">
+<path class="limb" d="M52 95 L51 109"/><ellipse cx="48.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<path class="limb" d="M68 95 L69 109"/><ellipse cx="71.5" cy="111" rx="5.4" ry="3" class="fill"/>
+<g class="arm-l"><path class="limb" d="M36 64 Q26 66 22 80"/><circle cx="21.6" cy="82.5" r="3.6" class="fill"/></g>
+<g class="arm-r"><path class="limb" d="M84 64 Q94 66 98 80"/><circle cx="98.4" cy="82.5" r="3.6" class="fill"/></g>
+<path d="M60 7 L104 104 Q88 95 73 96 C73 79 68 71 60 71 C52 71 47 79 47 96 Q32 95 16 104 Z" class="fill" mask="url(#cutp5)"/>
+<g class="face"><g class="brows"><path class="ln brow-l" d="M45.5 49.5 Q49.5 47 53 49.5"/><path class="ln brow-r" d="M67 49.5 Q70.5 47 74.5 49.5"/></g><path d="M46.5 56.5 Q49.5 58.6 52.5 56.5 M67.5 56.5 Q70.5 58.6 73.5 56.5" class="ln"/>
+<ellipse cx="43.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><ellipse cx="76.5" cy="62.5" rx="3.2" ry="2" fill="#ff8fa3" opacity=".5"/><path d="M57 64.6 Q60 65.4 63 64.6" class="ln"/><g class="zzz"><text x="80" y="36" font-size="9" font-weight="700" fill="#8b949e">z</text><text x="88" y="26" font-size="9" font-weight="700" fill="#8b949e">z</text></g></g>
+</g></g><text x="715" y="150" text-anchor="middle" font-size="13" fill="#8b949e">duerme</text>
+</svg>
