@@ -12,6 +12,7 @@
 //!     visible y siempre tras una confirmación explícita.
 
 pub mod brain;
+pub mod desktop;
 pub mod errors;
 pub mod exec;
 pub mod explain;

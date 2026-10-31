@@ -23,6 +23,9 @@ pub struct Action {
     pub level: Level,
     pub description: String,
     pub danger_note: String,
+    /// Acción de escritorio (captura, bloqueo, brillo, volumen): se lanza al
+    /// momento, sin terminal. Lo decide `safety::is_desktop_action`.
+    pub quick: bool,
 }
 
 /// Una pieza de un comando con su explicación.
@@ -127,7 +130,7 @@ impl Response {
 #[derive(Serialize, Clone, Debug)]
 pub struct ExecResult {
     pub ok: bool,
-    /// inline | terminal
+    /// inline | terminal | desktop
     pub mode: &'static str,
     pub output: String,
 }

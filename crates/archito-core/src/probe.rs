@@ -326,7 +326,8 @@ pub fn summary() -> String {
     push("Sistema", distro());
     push("Kernel", kernel());
     push("Equipo", hostname());
-    push("Escritorio", desktop());
+    let d = crate::desktop::desktop();
+    push("Escritorio", Some(format!("{} ({})", d.name, d.session())));
     push("Shell", shell());
     push("CPU", cpu_model().map(|m| format!("{m} ({} hilos)", cpu_threads())));
     push("RAM", memory().map(|m| format!("{:.1} de {:.0} GB en uso", m.used_gb, m.total_gb)));

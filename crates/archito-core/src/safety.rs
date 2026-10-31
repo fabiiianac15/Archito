@@ -134,6 +134,37 @@ fn is_read_only(command: &str) -> bool {
     }
 }
 
+/// Acciones de escritorio que se lanzan al momento, sin abrir una terminal:
+/// capturas, bloqueo, brillo y volumen. Cambian algo, pero nada que no se
+/// deshaga solo (una captura, la pantalla bloqueada) o con otro clic.
+///
+/// Tiene que ser un único comando simple, sin `sudo` ni redirecciones. La
+/// única sustitución que se acepta es `"$(slurp)"` como recuadro de `grim`,
+/// y la resuelve `exec::run_desktop` sin pasar por una shell.
+pub fn is_desktop_action(command: &str) -> bool {
+    let rest = command.replace("-g \"$(slurp)\"", "-g SLURP");
+    if rest.contains(['|', ';', '&', '>', '<', '`', '$', '\n', '\\', '"', '\'', '*', '(', ')', '{', '}']) {
+        return false;
+    }
+    let w: Vec<&str> = rest.split_whitespace().collect();
+    let Some((first, args)) = w.split_first() else { return false };
+    let sub = args.first().copied().unwrap_or("");
+    let ok = match *first {
+        "hyprlock" | "swaylock" | "gtklock" | "i3lock" | "xsecurelock" | "slock" | "betterlockscreen" | "xflock4" => true,
+        "loginctl" => args == ["lock-session"],
+        "brightnessctl" => sub == "set",
+        "light" => matches!(sub, "-A" | "-U" | "-S"),
+        "wpctl" => matches!(sub, "set-volume" | "set-mute"),
+        "pactl" => matches!(sub, "set-sink-volume" | "set-sink-mute"),
+        "grim" | "hyprshot" | "grimblast" | "spectacle" | "gnome-screenshot" | "xfce4-screenshooter" | "cosmic-screenshot" | "maim" | "scrot" => true,
+        "flameshot" => matches!(sub, "gui" | "full" | "screen"),
+        "niri" => args.len() == 3 && args[..2] == ["msg", "action"] && args[2].starts_with("screenshot"),
+        _ => false,
+    };
+    // `SLURP` solo vale como el recuadro de grim.
+    ok && (*first == "grim" || !w.contains(&"SLURP")) && classify(command) == Level::Confirm
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -161,6 +192,16 @@ mod tests {
             "/usr/bin/rm x", "FOO=1 rm x", "sudo pacman -Scc",
         ] {
             assert_eq!(classify(c), Level::Danger, "{c}");
+        }
+    }
+
+    #[test]
+    fn acciones_de_escritorio() {
+        for c in ["grim -g \"$(slurp)\" /home/yo/captura.png", "hyprlock", "loginctl lock-session", "brightnessctl set 10%+", "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+", "niri msg action screenshot", "spectacle -b -n -r -o /tmp/a.png"] {
+            assert!(is_desktop_action(c), "{c}");
+        }
+        for c in ["sudo brightnessctl set 10%", "loginctl terminate-session 1", "grim $(rm -rf ~)", "hyprlock; rm x", "wpctl status", "bash -c hyprlock", "flameshot config", "grim -g \"$(slurp)\" a.png; reboot"] {
+            assert!(!is_desktop_action(c), "{c}");
         }
     }
 

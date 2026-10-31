@@ -12,6 +12,8 @@ export interface Action {
   level: Level;
   description: string;
   danger_note: string;
+  /** Acción de escritorio (captura, bloqueo, brillo, volumen): corre sin terminal. */
+  quick: boolean;
 }
 
 export interface Step {
@@ -40,7 +42,7 @@ export interface Reply {
 
 export interface ExecResult {
   ok: boolean;
-  mode: "inline" | "terminal";
+  mode: "inline" | "terminal" | "desktop";
   output: string;
 }
 

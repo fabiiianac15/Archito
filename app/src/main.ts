@@ -156,6 +156,12 @@ function actionCard(action: Action): HTMLElement {
     btn.disabled = true;
     setMood("busy", "ejecutando");
     try {
+      // Las acciones de escritorio (una captura, el bloqueo) no deben tener
+      // la isla delante: se recoge y espera a que termine de cerrarse.
+      if (action.quick && island.isOpen) {
+        collapse();
+        await new Promise((done) => window.setTimeout(done, 450));
+      }
       const out = await api.runAction(action.id);
       if (out.mode === "inline") {
         settle(out.ok ? "Esto respondió tu sistema:" : "El comando falló:", out.ok, out.output);
@@ -181,7 +187,7 @@ function actionCard(action: Action): HTMLElement {
 
   add(
     card,
-    el("div", "action-head", el("strong", "", action.label), el("span", `tag tag-${action.level}`, LEVEL_TAG[action.level])),
+    el("div", "action-head", el("strong", "", action.label), el("span", `tag tag-${action.level}`, action.quick ? "escritorio" : LEVEL_TAG[action.level])),
     el("code", "cmd", `$ ${action.command}`),
     action.description ? el("p", "action-desc", action.description) : null,
     action.danger_note ? el("p", "action-warn", action.danger_note) : null,

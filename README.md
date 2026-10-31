@@ -35,6 +35,15 @@ El proyecto está pasando de Python + GTK4 a Rust + Tauri. El núcleo, la CLI y 
 - Estado de salud, CPU, memoria, disco, temperatura, procesos, batería, servicios fallidos y errores del registro.
 - Paquetes: buscar, instalar, quitar, actualizar con aviso de qué piezas centrales cambian, huérfanos y caché.
 
+### Se adapta a tu escritorio
+
+Al arrancar, Archito detecta tu escritorio (Hyprland, Sway, niri, KDE Plasma, GNOME, COSMIC, Xfce, gestores de X11…), si la sesión es Wayland o X11, tu distro (Arch, CachyOS, EndeavourOS, Manjaro, Garuda, Artix…) y tu ayudante del AUR. Con eso:
+
+- **Capturas, bloqueo, brillo y volumen** usan la herramienta que de verdad tienes: `hyprshot` o `grim` en Hyprland, `spectacle` en KDE, `gnome-screenshot` en GNOME, `hyprlock`, `swaylock` o `loginctl lock-session` para bloquear, `brightnessctl`, `wpctl` o `pactl`. Si falta, te dice qué paquete instalar.
+- Estas acciones de escritorio se lanzan al momento, sin abrir una terminal. Solo pasan las que el clasificador reconoce como tales (`safety::is_desktop_action`): un único comando de esa lista, sin `sudo` ni redirecciones.
+- "Qué escritorio uso" resume todo lo detectado y te da la línea exacta para el atajo de la isla en *tu* escritorio, incluido Hyprland con configuración en Lua.
+- Al actualizar, avisa si cambian piezas de tu escritorio (por ejemplo `hyprland` o `kwin`).
+
 ## La isla
 
 En el escritorio, Archito es una píldora pegada al borde superior, al centro. Un clic la abre con un resorte hasta un panel bajo y ancho que no cambia de tamaño:
@@ -70,7 +79,7 @@ Funciona en compositores Wayland con layer-shell: Hyprland, Sway, KDE Plasma y C
 
 | Ruta | Qué contiene |
 |---|---|
-| `crates/archito-core/` | El núcleo. `brain.rs` decide la intención, `probe.rs` lee el sistema, `safety.rs` clasifica el riesgo, `explain.rs` desarma comandos, `errors.rs` traduce errores, `lessons.rs` lleva el camino, `glossary.rs` y `memory.rs` completan el resto. |
+| `crates/archito-core/` | El núcleo. `brain.rs` decide la intención, `probe.rs` lee el sistema, `desktop.rs` detecta escritorio, distro y herramientas, `safety.rs` clasifica el riesgo, `explain.rs` desarma comandos, `errors.rs` traduce errores, `lessons.rs` lleva el camino, `glossary.rs` y `memory.rs` completan el resto. |
 | `crates/archito-cli/` | El binario `archito` para la terminal. |
 | `app/src-tauri/` | El backend de la isla: comandos hacia el núcleo y la capa layer-shell (`layer.rs`). |
 | `app/src/` | La interfaz en TypeScript sin framework. `island.ts` anima la forma, `main.ts` pinta las vistas. |
@@ -83,7 +92,7 @@ El núcleo no sabe nada de ventanas. La CLI y la isla usan la misma librería, y
 
 - **Las sondas solo leen.** Nada en `probe.rs` cambia el equipo.
 - **El riesgo lo decide el clasificador.** Analiza cada tramo del comando por separado, así que `pacman -Qi bash; rm -rf ~` sale como peligroso aunque empiece con una lectura.
-- **Tres niveles.** Lectura (se ejecuta dentro del chat), cambio (se abre en una terminal visible, tras confirmar) y peligroso (advertencia aparte y doble confirmación).
+- **Tres niveles.** Lectura (se ejecuta dentro del chat), cambio (se abre en una terminal visible, tras confirmar) y peligroso (advertencia aparte y doble confirmación). Las acciones de escritorio (captura, bloqueo, brillo, volumen) son cambios que se lanzan sin terminal y sin shell.
 - **La interfaz no manda comandos.** Solo envía el número de una acción que el núcleo propuso antes. El texto que se ejecuta es el que guardó el núcleo.
 - **Todo es local.** La memoria vive en `~/.config/archito/`. No hay telemetría ni llamadas a servicios externos.
 
@@ -153,12 +162,19 @@ archito-panel --camino           # la abre en una vista concreta
 archito-panel no tengo sonido    # la abre con una pregunta
 ```
 
-Para tenerla en un atajo de Hyprland:
+Para tenerla en un atajo, pregúntale a Archito "qué escritorio uso": te da la línea para tu escritorio. En Hyprland:
 
 ```ini
-exec-once = archito-panel
+# hyprland.conf
 bind = SUPER, space, exec, archito-panel
 ```
+
+```lua
+-- hyprland.lua
+hl.bind("SUPER + space", hl.dsp.exec_cmd("archito-panel"))
+```
+
+En `hyprland/` están `archito.conf` y `archito.lua` con el atajo y el blur de la isla.
 
 Dentro de la isla, `Esc` la recoge y las flechas arriba y abajo recorren lo que ya escribiste.
 
@@ -184,7 +200,6 @@ La versión en Python hace cosas que la nueva todavía no:
 
 - IA local opcional con Ollama
 - temas de color
-- volumen, brillo, capturas y bloqueo de pantalla
 - comandos personalizados en JSON
 
 Lo siguiente en la lista es la IA local con respuesta en streaming, apoyada en la Arch Wiki sin conexión (`arch-wiki-docs`) para que cite lo que dice. Después vienen las animaciones y los sonidos del personaje.

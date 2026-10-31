@@ -57,6 +57,28 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("lsusb", "Lista los dispositivos USB conectados."),
     ("sensors", "Muestra temperaturas y ventiladores (paquete lm_sensors)."),
     ("wpctl", "Controla el sonido de PipeWire: volumen, dispositivos, silencio."),
+    ("pactl", "Controla el sonido a través de PulseAudio (o de PipeWire haciéndose pasar por él)."),
+    ("brightnessctl", "Lee y cambia el brillo de la pantalla. No necesita sudo."),
+    ("light", "Cambia el brillo de la pantalla."),
+    ("loginctl", "Habla con systemd-logind, que lleva las sesiones: bloquearlas, verlas, cerrarlas."),
+    ("hyprlock", "La pantalla de bloqueo de Hyprland. Se desbloquea con tu contraseña."),
+    ("hypridle", "Vigila si usas el equipo y, al rato, apaga la pantalla o la bloquea."),
+    ("swaylock", "Pantalla de bloqueo para Sway y otros compositores Wayland."),
+    ("gtklock", "Pantalla de bloqueo para compositores Wayland, hecha con GTK."),
+    ("i3lock", "Pantalla de bloqueo sencilla para X11."),
+    ("xflock4", "Bloquea la sesión en Xfce con el bloqueador que tengas configurado."),
+    ("hyprshot", "Hace capturas en Hyprland: un recuadro, una ventana o una pantalla."),
+    ("grimblast", "Capturas para Hyprland basadas en grim y slurp, con aviso al terminar."),
+    ("grim", "Captura la pantalla en compositores Wayland y la guarda como imagen."),
+    ("slurp", "Te deja dibujar un recuadro con el ratón e imprime sus coordenadas. Se usa con grim."),
+    ("spectacle", "La herramienta de capturas de KDE."),
+    ("gnome-screenshot", "Hace capturas en GNOME desde la terminal."),
+    ("xfce4-screenshooter", "La herramienta de capturas de Xfce."),
+    ("cosmic-screenshot", "La herramienta de capturas de COSMIC."),
+    ("flameshot", "Capturas con editor: flechas, recuadros y texto antes de guardar."),
+    ("maim", "Captura la pantalla en X11."),
+    ("scrot", "Captura la pantalla en X11."),
+    ("niri", "El compositor niri. Con `niri msg` se le dan órdenes desde la terminal."),
     ("bluetoothctl", "Maneja Bluetooth desde la terminal."),
     ("brightnessctl", "Cambia el brillo de la pantalla."),
     ("checkupdates", "Lista las actualizaciones pendientes sin tocar el sistema (paquete pacman-contrib)."),
@@ -143,6 +165,24 @@ const COMMON_FLAGS: &[(&str, &[(&str, &str)])] = &[
     ("chmod", &[("+x", "Da permiso de ejecución."), ("-R", "Recursivo: aplica a todo lo que haya dentro.")]),
     ("tar", &[("-xf", "Extrae (x) el archivo (f) que se indica."), ("-czf", "Crea (c) un archivo comprimido con gzip (z) con el nombre que sigue (f).")]),
     ("ping", &[("-c", "Número de paquetes a enviar antes de parar.")]),
+    // Escritorio: capturas, bloqueo, brillo y volumen.
+    ("wpctl", &[("status", "Muestra dispositivos, salidas y programas que están sonando."), ("set-volume", "Cambia el volumen del dispositivo que sigue."), ("set-mute", "Silencia (1) o quita el silencio (0) del dispositivo que sigue."), ("@DEFAULT_AUDIO_SINK@", "La salida de sonido que estás usando ahora."), ("-l", "Límite: el volumen no pasa del valor que sigue (1.0 es el 100 %).")]),
+    ("pactl", &[("set-sink-volume", "Cambia el volumen de la salida que sigue."), ("set-sink-mute", "Silencia (1) o quita el silencio (0) de la salida que sigue."), ("@DEFAULT_SINK@", "La salida de sonido que estás usando ahora.")]),
+    ("brightnessctl", &[("set", "Cambia el brillo al valor que sigue.")]),
+    ("light", &[("-A", "Sube el brillo esos puntos."), ("-U", "Baja el brillo esos puntos."), ("-S", "Pone el brillo justo en ese porcentaje.")]),
+    ("loginctl", &[("lock-session", "Pide a tu sesión que se bloquee. La bloquea tu escritorio o el bloqueador que tengas.")]),
+    ("swaylock", &[("-f", "Se separa de la terminal en cuanto la pantalla queda bloqueada.")]),
+    ("i3lock", &[("-c", "Color de fondo de la pantalla de bloqueo.")]),
+    ("hyprshot", &[("-m", "Modo: qué capturar."), ("region", "Eliges un recuadro con el ratón."), ("output", "Una pantalla entera."), ("active", "La pantalla o ventana que tiene el foco."), ("-o", "Carpeta donde se guarda la imagen.")]),
+    ("grimblast", &[("--notify", "Avisa con una notificación al terminar."), ("save", "Guarda la captura en un archivo."), ("area", "Eliges un recuadro con el ratón."), ("output", "La pantalla entera.")]),
+    ("grim", &[("-g", "El recuadro a capturar. Aquí lo da slurp cuando lo dibujas.")]),
+    ("spectacle", &[("-b", "Sin abrir su ventana."), ("-n", "Sin notificación."), ("-r", "Eliges un recuadro."), ("-f", "La pantalla entera."), ("-o", "Archivo donde se guarda.")]),
+    ("gnome-screenshot", &[("-a", "Eliges un recuadro."), ("-f", "Archivo donde se guarda.")]),
+    ("xfce4-screenshooter", &[("-r", "Eliges un recuadro."), ("-f", "La pantalla entera."), ("-s", "Archivo donde se guarda.")]),
+    ("flameshot", &[("gui", "Abre el selector con editor."), ("full", "La pantalla entera, sin editor."), ("-p", "Carpeta donde se guarda.")]),
+    ("maim", &[("-s", "Eliges un recuadro.")]),
+    ("scrot", &[("-s", "Eliges un recuadro.")]),
+    ("niri", &[("msg", "Envía una orden al compositor que está corriendo."), ("action", "La orden es una acción, como las de tus atajos."), ("screenshot", "Abre el selector de capturas de niri."), ("screenshot-screen", "Captura la pantalla entera.")]),
 ];
 
 const GENERIC_FLAGS: &[(&str, &str)] = &[
@@ -267,18 +307,24 @@ pub fn explain(line: &str) -> Vec<Step> {
             doc
         } else if program == "journalctl" && prev == "-b" && tok.starts_with('-') && tok[1..].chars().all(|c| c.is_ascii_digit()) {
             "Cuenta arranques hacia atrás: -1 es el arranque anterior al actual.".to_string()
-        } else if tok.starts_with('-') || matches!(program.as_str(), "systemctl" | "ip" | "ps") && flag_doc(&program, &tok).is_some() {
+        } else if tok.starts_with('-') || flag_doc(&program, &tok).is_some() {
             flag_doc(&program, &tok).unwrap_or_else(|| format!("Opción de {program}. Búscala en `man {program}`."))
         } else {
             match (program.as_str(), prev.as_str()) {
                 ("pacman" | "yay" | "paru", _) => format!("El paquete sobre el que actúa: {tok}."),
                 ("systemctl", _) => format!("El servicio sobre el que actúa: {tok}."),
                 ("journalctl", "-n") => "Cuántas líneas mostrar.".to_string(),
-                ("wpctl", _) if tok == "status" => "Muestra dispositivos, salidas y programas que están sonando.".to_string(),
                 ("journalctl", "-p") => "La prioridad mínima: err muestra errores y cosas peores.".to_string(),
                 ("journalctl", "-u") => format!("El servicio cuyos mensajes quieres ver: {tok}."),
                 ("man" | "tldr" | "whatis", _) => format!("El comando del que quieres leer: {tok}."),
                 ("cd" | "ls" | "mkdir" | "rm" | "cp" | "mv" | "cat" | "less" | "du" | "nano" | "vim", _) => format!("La ruta sobre la que actúa: {tok}."),
+                ("wpctl" | "pactl", "set-mute" | "set-sink-mute" | "@DEFAULT_AUDIO_SINK@" | "@DEFAULT_SINK@") if tok == "1" => "1: silenciar.".to_string(),
+                ("wpctl" | "pactl", _) if tok == "0" => "0: quitar el silencio.".to_string(),
+                _ if tok.ends_with("%+") || tok.starts_with('+') && tok.ends_with('%') => format!("Sube un {}.", tok.trim_matches(['+', '%']).to_string() + " %"),
+                _ if tok.ends_with("%-") || tok.starts_with('-') && tok.ends_with('%') => format!("Baja un {}.", tok.trim_matches(['-', '%']).to_string() + " %"),
+                _ if tok.ends_with('%') => format!("Lo deja justo en el {tok}."),
+                _ if tok.starts_with('/') || tok.starts_with('~') => format!("La ruta: dónde se guarda o sobre qué actúa ({tok})."),
+                ("grim", "-g") => "El recuadro que dibujas con slurp.".to_string(),
                 _ => "Un argumento: el dato con el que trabaja el comando.".to_string(),
             }
         };

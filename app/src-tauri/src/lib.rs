@@ -6,24 +6,19 @@
 
 mod layer;
 
-use std::sync::Mutex;
-
 use archito_core::lessons::{CheckResult, PathView};
 use archito_core::{Archito, ExecResult, LogEntry, Response};
 use tauri::{Emitter, Manager, State, WebviewWindow};
 
-struct Core(Mutex<Archito>);
+type Bot<'a> = State<'a, Archito>;
 
-type Bot<'a> = State<'a, Core>;
-
-fn with<T>(core: &Bot, f: impl FnOnce(&mut Archito) -> T) -> T {
-    // Si un comando anterior entró en pánico, el estado sigue siendo usable.
-    let mut guard = core.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-    f(&mut guard)
+fn with<T>(core: &Bot, f: impl FnOnce(&Archito) -> T) -> T {
+    f(core.inner())
 }
 
-// Los comandos marcados `async` corren fuera del hilo de la ventana: una sonda
-// lenta (checkupdates, ping) no congela el panel.
+// Los comandos marcados `async` corren fuera del hilo de la ventana, y el
+// núcleo no se bloquea entero mientras uno trabaja: una sonda lenta
+// (checkupdates, ping) no congela el panel ni las demás preguntas.
 
 #[tauri::command(async)]
 fn welcome(core: Bot) -> Response {
@@ -140,7 +135,7 @@ pub fn run() {
                 let _ = win.emit("launch", launch);
             }
         }))
-        .manage(Core(Mutex::new(Archito::new())))
+        .manage(Archito::new())
         .invoke_handler(tauri::generate_handler![
             welcome,
             ask,

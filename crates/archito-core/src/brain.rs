@@ -3,9 +3,12 @@
 
 use std::collections::BTreeMap;
 use std::fs;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Mutex, MutexGuard};
 
 use serde::Serialize;
 
+use crate::desktop::{self, Missing, Tool};
 use crate::errors::{self, ErrorHelp};
 use crate::exec;
 use crate::explain;
@@ -14,10 +17,10 @@ use crate::lessons;
 use crate::memory::{self, Memory};
 use crate::model::{Action, ExecResult, Level, Response, Status};
 use crate::probe;
-use crate::safety::classify;
+use crate::safety::{classify, is_desktop_action};
 use crate::text::{norm, phrase_match, strip_any};
 
-type Handler = fn(&mut Archito, &str) -> Response;
+type Handler = fn(&Archito, &str) -> Response;
 
 /// Intenciones por palabras clave. Gana la frase más larga; en un empate, la
 /// que está antes en la lista. Por eso las guías de problemas van primero.
@@ -28,6 +31,12 @@ const INTENTS: &[(&[&str], Handler)] = &[
     (&["internet", "wifi", "wi-fi", "conexion", "la red", "sin red", "no tengo red", "no conecta", "se cae la red"], h_network),
     (&["lento", "lenta", "va lento", "rendimiento", "se traba", "se congela", "se pega", "diagnostico"], h_slow),
     (&["por que fallo", "porque fallo", "que salio mal", "ultimo error", "que paso con el comando"], h_why),
+    // ── Escritorio ──
+    (&["captura", "captura de pantalla", "pantallazo", "screenshot", "foto de la pantalla", "capturar pantalla"], h_screenshot),
+    (&["bloquea", "bloquear", "bloquea la pantalla", "bloquear la pantalla", "bloquea el equipo", "bloquea la sesion"], h_lock),
+    (&["brillo", "sube el brillo", "baja el brillo", "mas brillo", "menos brillo", "brillo al", "pon el brillo"], h_brightness),
+    (&["sube el volumen", "baja el volumen", "subir el volumen", "bajar el volumen", "mas volumen", "menos volumen", "volumen al", "pon el volumen", "silencia", "silenciar", "mutea", "quita el silencio", "desmutea"], h_volume),
+    (&["escritorio", "que escritorio", "mi escritorio", "entorno de escritorio", "compositor", "wayland o x11", "uso wayland", "uso x11", "mi entorno", "atajo de archito", "atajo para archito"], h_desktop),
     // ── Aprender ──
     (&["camino", "mision", "misiones", "quiero aprender", "ensename", "por donde empiezo", "que sigue", "siguiente mision", "leccion*", "mi progreso", "mi nivel"], h_path),
     (&["comprobar", "comprueba", "ya lo hice", "ya la hice", "revisa mi mision"], h_check),
@@ -89,11 +98,14 @@ pub struct LogEntry {
     pub times: u32,
 }
 
+/// Todo el estado va detrás de candados cortos, así varias preguntas pueden
+/// estar en curso a la vez: una sonda lenta (checkupdates, ping) no frena a las
+/// demás. Nunca se toma un candado mientras se espera a una sonda.
 pub struct Archito {
-    pub memory: Memory,
-    pending: BTreeMap<u64, Action>,
-    next_id: u64,
-    tip: usize,
+    memory: Mutex<Memory>,
+    pending: Mutex<BTreeMap<u64, Action>>,
+    next_id: AtomicU64,
+    tip: AtomicUsize,
 }
 
 impl Default for Archito {
@@ -109,15 +121,28 @@ impl Archito {
     }
 
     pub fn with_memory(memory: Memory) -> Self {
-        Archito { memory, pending: BTreeMap::new(), next_id: 1, tip: memory::now() as usize }
+        Archito { memory: Mutex::new(memory), pending: Mutex::new(BTreeMap::new()), next_id: AtomicU64::new(1), tip: AtomicUsize::new(memory::now() as usize) }
     }
 
     // ── API pública ──────────────────────────────────────────────────────────
 
+    /// La memoria del usuario. Si un hilo entró en pánico con ella tomada,
+    /// sigue siendo usable.
+    pub fn mem(&self) -> MutexGuard<'_, Memory> {
+        self.memory.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn pending(&self) -> MutexGuard<'_, BTreeMap<u64, Action>> {
+        self.pending.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
     pub fn welcome(&self) -> Response {
-        let name = self.memory.user_name.as_deref().map(|n| format!(", {n}")).unwrap_or_default();
-        let next = match lessons::next(&self.memory) {
-            Some(m) if self.memory.missions_done.is_empty() => {
+        let (name, next, beginner) = {
+            let mem = self.mem();
+            (mem.user_name.as_deref().map(|n| format!(", {n}")).unwrap_or_default(), lessons::next(&mem), mem.missions_done.is_empty())
+        };
+        let next = match next {
+            Some(m) if beginner => {
                 format!("\n\nSi estás empezando, tengo un camino de misiones cortas para que le pierdas el miedo a la terminal. La primera: **{}**.", m.title)
             }
             Some(m) => format!("\n\nTu siguiente misión: **{}**.", m.title),
@@ -129,7 +154,7 @@ impl Archito {
         .chips(&["camino", "info del sistema", "ayuda"])
     }
 
-    pub fn process(&mut self, raw: &str) -> Response {
+    pub fn process(&self, raw: &str) -> Response {
         let n = norm(raw);
         if n.is_empty() {
             return Response::new("No me llegó nada. ¿Me lo repites?");
@@ -137,7 +162,7 @@ impl Archito {
         let mut resp = self.route(&n, raw);
 
         // Modo profesor: toda acción llega con su comando desarmado.
-        if self.memory.teach && resp.steps.is_empty() {
+        if self.mem().teach && resp.steps.is_empty() {
             if let Some(action) = resp.actions.first() {
                 resp.steps = explain::explain(&action.command);
             }
@@ -152,28 +177,28 @@ impl Archito {
         let mut changed = false;
         for program in shown {
             if explain::known(&program).is_some() || exec::has_tool(&program) {
-                self.memory.see(&program);
+                self.mem().see(&program);
                 changed = true;
             }
         }
         if changed {
-            self.memory.save();
+            self.mem().save();
         }
         resp
     }
 
     /// Desarma un comando pieza por pieza y lo apunta en la bitácora.
-    pub fn explain(&mut self, command: &str) -> Response {
+    pub fn explain(&self, command: &str) -> Response {
         let resp = self.explain_only(command);
         if let Some(program) = explain::main_program(command).filter(|_| !resp.steps.is_empty()) {
-            self.memory.see(&program);
-            self.memory.save();
+            self.mem().see(&program);
+            self.mem().save();
         }
         resp
     }
 
     /// El desglose sin tocar la bitácora: `process` ya apunta lo que muestra.
-    fn explain_only(&mut self, command: &str) -> Response {
+    fn explain_only(&self, command: &str) -> Response {
         let steps = explain::explain(command);
         if steps.is_empty() {
             return Response::new("Escribe un comando después de \"explica\". Por ejemplo: explica sudo pacman -Syu");
@@ -192,7 +217,7 @@ impl Archito {
     }
 
     /// Explica el último comando que falló en la terminal (necesita el hook).
-    pub fn why(&mut self) -> Response {
+    pub fn why(&self) -> Response {
         let Some((status, command)) = last_command() else {
             return Response::new(
                 "Todavía no veo tu terminal. Para que pueda explicarte el último comando que falló, instala el hook de la shell:\n\n> Apunta cada comando y su resultado en una carpeta temporal de tu sesión. Se borra al cerrar sesión y no sale del equipo.",
@@ -212,21 +237,22 @@ impl Archito {
     }
 
     pub fn path(&self) -> lessons::PathView {
-        lessons::view(&self.memory)
+        lessons::view(&self.mem())
     }
 
-    pub fn start_mission(&mut self, id: &str) {
-        lessons::start(&mut self.memory, id);
+    pub fn start_mission(&self, id: &str) {
+        lessons::start(&mut self.mem(), id);
     }
 
-    pub fn check_mission(&mut self, id: &str) -> lessons::CheckResult {
-        lessons::check(&mut self.memory, id)
+    pub fn check_mission(&self, id: &str) -> lessons::CheckResult {
+        lessons::check(&mut self.mem(), id)
     }
 
     pub fn logbook(&self) -> Vec<LogEntry> {
-        self.memory
-            .seen
-            .iter()
+        // Se copia antes de leer los manuales: whatis tarda y la memoria no
+        // debe quedar tomada mientras tanto.
+        let seen: Vec<(String, u32)> = self.mem().seen.iter().map(|(p, t)| (p.clone(), *t)).collect();
+        seen.iter()
             .map(|(program, times)| LogEntry {
                 program: program.clone(),
                 doc: explain::known(program).map(str::to_string).or_else(|| probe::whatis(program)).unwrap_or_else(|| "Sin descripción todavía.".into()),
@@ -237,8 +263,8 @@ impl Archito {
 
     /// Ejecuta una acción que Archito propuso antes. La interfaz solo manda el
     /// número: el comando que se ejecuta es el que guardó el núcleo.
-    pub fn execute(&mut self, id: u64) -> ExecResult {
-        let Some(action) = self.pending.remove(&id) else {
+    pub fn execute(&self, id: u64) -> ExecResult {
+        let Some(action) = self.pending().remove(&id) else {
             return ExecResult { ok: false, mode: "inline", output: "Esa acción ya no está disponible. Pídemela otra vez.".into() };
         };
         if action.level == Level::Safe {
@@ -248,6 +274,15 @@ impl Archito {
                 Ok(output) => ExecResult { ok: true, mode: "inline", output },
                 Err(output) => ExecResult { ok: false, mode: "inline", output },
             };
+        }
+        if action.quick {
+            let result = exec::run_desktop(&action.command);
+            memory::log_activity(&action.command, if result.is_ok() { "ejecutado" } else { "falló" });
+            let (ok, output) = match result {
+                Ok(output) => (true, output),
+                Err(output) => (false, output),
+            };
+            return ExecResult { ok, mode: "desktop", output };
         }
         let opened = exec::open_in_terminal(&action.command);
         memory::log_activity(&action.command, if opened { "enviado a terminal" } else { "sin terminal" });
@@ -263,12 +298,12 @@ impl Archito {
     }
 
     /// Saca una acción pendiente para que la ejecute quien llama (la CLI).
-    pub fn take_action(&mut self, id: u64) -> Option<Action> {
-        self.pending.remove(&id)
+    pub fn take_action(&self, id: u64) -> Option<Action> {
+        self.pending().remove(&id)
     }
 
-    pub fn cancel(&mut self, id: u64) {
-        if let Some(action) = self.pending.remove(&id) {
+    pub fn cancel(&self, id: u64) {
+        if let Some(action) = self.pending().remove(&id) {
             memory::log_activity(&action.command, "cancelado");
         }
     }
@@ -276,10 +311,10 @@ impl Archito {
     // ── Internos ─────────────────────────────────────────────────────────────
 
     /// Prepara una acción. El nivel lo pone el clasificador, no quien la pide.
-    fn propose(&mut self, label: &str, command: &str, description: &str) -> Action {
+    fn propose(&self, label: &str, command: &str, description: &str) -> Action {
         let level = classify(command);
         let action = Action {
-            id: self.next_id,
+            id: self.next_id.fetch_add(1, Ordering::Relaxed),
             label: label.to_string(),
             command: command.to_string(),
             level,
@@ -289,17 +324,18 @@ impl Archito {
             } else {
                 String::new()
             },
+            quick: is_desktop_action(command),
         };
-        self.next_id += 1;
-        self.pending.insert(action.id, action.clone());
+        let mut pending = self.pending();
+        pending.insert(action.id, action.clone());
         // Las acciones viejas caducan: no se acumulan sin límite.
-        while self.pending.len() > 40 {
-            self.pending.pop_first();
+        while pending.len() > 40 {
+            pending.pop_first();
         }
         action
     }
 
-    fn error_response(&mut self, help: ErrorHelp) -> Response {
+    fn error_response(&self, help: ErrorHelp) -> Response {
         let fixes: Vec<String> = help.fix.iter().map(|f| format!("• {f}")).collect();
         let mut resp = Response::new(format!("**{}**\n\n{}\n\n**Qué hacer:**\n{}", help.title, help.why, fixes.join("\n"))).status(Status::Warn);
         if let Some(command) = help.command {
@@ -311,7 +347,7 @@ impl Archito {
         resp
     }
 
-    fn route(&mut self, n: &str, raw: &str) -> Response {
+    fn route(&self, n: &str, raw: &str) -> Response {
         // 1. ¿Pegó un mensaje de error?
         if let Some(help) = errors::from_text(raw) {
             return self.error_response(help);
@@ -321,8 +357,8 @@ impl Archito {
         if let Some(name) = strip_any(n, &["me llamo", "mi nombre es"]) {
             if !name.is_empty() && name.split(' ').count() <= 2 {
                 let name: String = name.split(' ').map(capitalize).collect::<Vec<_>>().join(" ");
-                self.memory.user_name = Some(name.clone());
-                self.memory.save();
+                self.mem().user_name = Some(name.clone());
+                self.mem().save();
                 return Response::new(format!("Encantado, **{name}**. Lo guardé en tu equipo (~/.config/archito/) y en ningún otro sitio."))
                     .chips(&["camino", "info del sistema"]);
             }
@@ -331,7 +367,7 @@ impl Archito {
         // 3. Explicar un comando
         if let Some(rest) = strip_any(n, &["explica", "explicame", "que hace", "para que sirve", "como funciona", "como se usa"]) {
             let rest = strip_any(rest, &["el comando", "este comando", "el"]).unwrap_or(rest);
-            let original = original_tail(raw, rest);
+            let original = original_tail(raw, n, rest);
             if looks_like_command(&original) {
                 return self.explain_only(&original);
             }
@@ -358,7 +394,7 @@ impl Archito {
         }
         if let Some(rest) = strip_any(n, &["desinstala", "desinstalar", "elimina", "eliminar", "quita", "quitar", "borra el paquete"]) {
             let pkg = strip_any(rest, &["el paquete", "el programa", "la aplicacion", "el", "la"]).unwrap_or(rest);
-            if valid_package(pkg) {
+            if valid_package(pkg) && !matches!(pkg, "silencio" | "volumen" | "brillo") {
                 return self.remove(pkg);
             }
         }
@@ -401,7 +437,7 @@ impl Archito {
         .chips(&["ayuda", "camino", "salud"])
     }
 
-    fn glossary_response(&mut self, entry: &glossary::Term) -> Response {
+    fn glossary_response(&self, entry: &glossary::Term) -> Response {
         let mut resp = Response::new(format!("**{}**\n\n{}", entry.title, entry.text)).chips(&["camino", "consejo"]);
         if let Some(cmd) = entry.try_it {
             let action = self.propose("Verlo en mi equipo", cmd, "Una lectura: no cambia nada.");
@@ -410,7 +446,7 @@ impl Archito {
         resp
     }
 
-    fn install(&mut self, pkg: &str) -> Response {
+    fn install(&self, pkg: &str) -> Response {
         if !valid_package(pkg) {
             return self.search(pkg);
         }
@@ -443,7 +479,7 @@ impl Archito {
         resp.chips(&[&format!("busca {pkg}"), "qué es un paquete"])
     }
 
-    fn remove(&mut self, pkg: &str) -> Response {
+    fn remove(&self, pkg: &str) -> Response {
         if !probe::is_installed(pkg) {
             return Response::new(format!("No tienes instalado ningún paquete llamado **{pkg}**."))
                 .learn("pacman -Qe", "Lista los paquetes que instalaste tú, para encontrar el nombre exacto.");
@@ -459,7 +495,7 @@ impl Archito {
         resp.chips(&[&format!("explica pacman -Qi {pkg}")])
     }
 
-    fn search(&mut self, term: &str) -> Response {
+    fn search(&self, term: &str) -> Response {
         let term = term.split(' ').next().unwrap_or(term);
         if !valid_package(term) {
             return Response::new("Dame una sola palabra para buscar, por ejemplo: busca navegador");
@@ -498,13 +534,23 @@ fn valid_package(name: &str) -> bool {
         && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '@' | '_' | '+' | '-'))
 }
 
-/// Recupera del texto original las últimas palabras que corresponden a
-/// `rest`: los flags distinguen mayúsculas (-Syu no es -syu).
-fn original_tail(raw: &str, rest: &str) -> String {
-    let count = rest.split_whitespace().count();
-    let words: Vec<&str> = raw.split_whitespace().collect();
-    let start = words.len().saturating_sub(count);
-    words[start..].join(" ").trim_end_matches(['?', '!', '.']).trim_matches('`').to_string()
+/// El trozo de `raw` (el texto tal cual, porque los flags distinguen
+/// mayúsculas: -Syu no es -syu) que corresponde a `rest`, la cola de su
+/// versión normalizada `n`. Se cuenta desde el principio: las palabras de
+/// delante ("explica el comando") se normalizan una a una, pero las de detrás
+/// pueden partirse (`"$(slurp)"` queda en `$ slurp`).
+fn original_tail(raw: &str, n: &str, rest: &str) -> String {
+    let mut skip = n.split_whitespace().count().saturating_sub(rest.split_whitespace().count());
+    let mut tail = raw.trim_start();
+    while skip > 0 && !tail.is_empty() {
+        let (word, after) = tail.split_once(char::is_whitespace).unwrap_or((tail, ""));
+        // Un "¿" suelto no cuenta: la normalización lo borra.
+        if !norm(word).is_empty() {
+            skip -= 1;
+        }
+        tail = after.trim_start();
+    }
+    tail.trim_end_matches(['?', '!', '.']).trim_matches('`').to_string()
 }
 
 fn looks_like_command(text: &str) -> bool {
@@ -559,23 +605,24 @@ fn mark(ok: bool) -> &'static str {
 
 // ── Conversación ─────────────────────────────────────────────────────────────
 
-fn h_hello(a: &mut Archito, _: &str) -> Response {
+fn h_hello(a: &Archito, _: &str) -> Response {
     let greeting = match probe::local_hour() {
         0..=11 => "Buenos días",
         12..=18 => "Buenas tardes",
         _ => "Buenas noches",
     };
-    let name = a.memory.user_name.as_deref().map(|n| format!(", {n}")).unwrap_or_default();
-    let hint = if a.memory.user_name.is_none() { " Si me dices \"me llamo …\", lo recuerdo." } else { "" };
+    let name = a.mem().user_name.as_deref().map(|n| format!(", {n}")).unwrap_or_default();
+    let hint = if a.mem().user_name.is_none() { " Si me dices \"me llamo …\", lo recuerdo." } else { "" };
     Response::new(format!("{greeting}{name}. ¿Qué hacemos hoy con tu sistema?{hint}")).chips(&["camino", "salud", "consejo"])
 }
 
-fn h_help(_: &mut Archito, _: &str) -> Response {
+fn h_help(_: &Archito, _: &str) -> Response {
     Response::new(
         "**Esto hago hoy:**\n\n\
          • **Enseñarte:** camino (misiones) · explica <comando> · qué es <palabra> · bitácora · consejo\n\
          • **Traducir errores:** pega aquí el mensaje, o escribe \"por qué falló\" tras un comando\n\
          • **Cuando algo falla:** no tengo sonido · no tengo internet · va lento · no arranca\n\
+         • **Tu escritorio:** captura · bloquea la pantalla · sube el brillo · baja el volumen · qué escritorio uso\n\
          • **Tu sistema:** info del sistema · salud · cpu · ram · disco · temperatura · procesos · batería\n\
          • **Paquetes:** busca <algo> · instala <paquete> · quita <paquete> · actualiza · huérfanos · caché\n\
          • **Registro:** servicios · errores · mi actividad\n\n\
@@ -584,40 +631,40 @@ fn h_help(_: &mut Archito, _: &str) -> Response {
     .chips(&["camino", "salud", "explica sudo pacman -Syu"])
 }
 
-fn h_identity(_: &mut Archito, _: &str) -> Response {
+fn h_identity(_: &Archito, _: &str) -> Response {
     Response::new(
         "Soy **Archito**, un asistente local para Arch Linux.\n\nVivo en tu equipo, no en la nube: lo que te digo de tu sistema lo leo en el momento, y nada sale de aquí.\n\n> Mi meta es que cada vez me necesites menos. Por eso te muestro siempre el comando real que hay detrás de cada respuesta.",
     )
     .chips(&["camino", "ayuda"])
 }
 
-fn h_thanks(a: &mut Archito, _: &str) -> Response {
-    let name = a.memory.user_name.as_deref().map(|n| format!(", {n}")).unwrap_or_default();
+fn h_thanks(a: &Archito, _: &str) -> Response {
+    let name = a.mem().user_name.as_deref().map(|n| format!(", {n}")).unwrap_or_default();
     Response::new(format!("Con gusto{name}. Aquí sigo cuando me necesites."))
 }
 
-fn h_bye(_: &mut Archito, _: &str) -> Response {
+fn h_bye(_: &Archito, _: &str) -> Response {
     Response::new("Hasta luego. Que tu uptime sea largo y tus logs cortos.").status(Status::Bye)
 }
 
-fn h_tip(a: &mut Archito, _: &str) -> Response {
-    a.tip = a.tip.wrapping_add(1);
-    Response::new(TIPS[a.tip % TIPS.len()]).chips(&["otro consejo", "camino"])
+fn h_tip(a: &Archito, _: &str) -> Response {
+    let tip = a.tip.fetch_add(1, Ordering::Relaxed).wrapping_add(1);
+    Response::new(TIPS[tip % TIPS.len()]).chips(&["otro consejo", "camino"])
 }
 
-fn h_teach_on(a: &mut Archito, _: &str) -> Response {
-    a.memory.teach = true;
-    a.memory.save();
+fn h_teach_on(a: &Archito, _: &str) -> Response {
+    a.mem().teach = true;
+    a.mem().save();
     Response::new("Modo profesor activado: cada comando que te proponga llegará desarmado, pieza por pieza.")
 }
 
-fn h_teach_off(a: &mut Archito, _: &str) -> Response {
-    a.memory.teach = false;
-    a.memory.save();
+fn h_teach_off(a: &Archito, _: &str) -> Response {
+    a.mem().teach = false;
+    a.mem().save();
     Response::new("Modo experto: ya no desarmo los comandos por mi cuenta. El botón Explicar sigue ahí cuando lo quieras.")
 }
 
-fn h_hook(_: &mut Archito, _: &str) -> Response {
+fn h_hook(_: &Archito, _: &str) -> Response {
     let active = recent_path().exists();
     let state = if active { "Ya está funcionando en esta sesión." } else { "Todavía no está instalado." };
     Response::new(format!(
@@ -627,13 +674,227 @@ fn h_hook(_: &mut Archito, _: &str) -> Response {
     .chips(&["por qué falló", "camino"])
 }
 
+// ── Escritorio ───────────────────────────────────────────────────────────────
+
+/// Dirección y cantidad pedidas: "sube", "baja 5", "al 40 %". Devuelve
+/// (paso con signo, porcentaje exacto). Sin dirección ni número: (0, None).
+fn amount(n: &str) -> (i32, Option<u32>) {
+    let words: Vec<&str> = n.split(' ').collect();
+    let number = words.iter().find_map(|w| w.trim_end_matches('%').parse::<u32>().ok()).map(|v| v.min(100));
+    let up = words.iter().any(|w| matches!(*w, "sube" | "subir" | "subele" | "mas" | "aumenta" | "aumentar" | "arriba"));
+    let down = words.iter().any(|w| matches!(*w, "baja" | "bajar" | "bajale" | "menos" | "reduce" | "reducir" | "disminuye" | "abajo"));
+    match (up, down, number) {
+        (true, false, n) => (n.unwrap_or(10) as i32, None),
+        (false, true, n) => (-(n.unwrap_or(10) as i32), None),
+        (_, _, Some(n)) => (0, Some(n)),
+        _ => (0, None),
+    }
+}
+
+/// Respuesta cuando falta la herramienta: qué instalar y con qué comando.
+fn missing_tool(a: &Archito, what: &str, missing: Missing) -> Response {
+    let command = format!("sudo pacman -S --needed {}", missing.package);
+    let action = a.propose(&format!("Instalar {}", missing.package), &command, missing.why);
+    let mut resp = Response::new(format!(
+        "Para {what} en **{}** necesito una herramienta que no tienes: **{}**.\n\n{}",
+        desktop::desktop().name,
+        missing.package,
+        missing.why
+    ))
+    .status(Status::Warn);
+    resp.actions.push(action);
+    resp.chips(&["qué escritorio uso"])
+}
+
+/// Propone una acción de escritorio y enseña su comando.
+fn desktop_action(a: &Archito, resp: &mut Response, label: &str, tool: &Tool, description: &str) {
+    let action = a.propose(label, &tool.command, description);
+    resp.actions.push(action);
+}
+
+fn h_screenshot(a: &Archito, n: &str) -> Response {
+    let region_first = !n.split(' ').any(|w| matches!(w, "completa" | "entera" | "toda" | "todo" | "pantalla"))
+        || n.split(' ').any(|w| matches!(w, "recuadro" | "region" | "zona" | "parte" | "area" | "seleccion" | "trozo"));
+    let (region, full) = (desktop::screenshot(true), desktop::screenshot(false));
+    let tool_name = match (&region, &full) {
+        (Ok(t), _) | (_, Ok(t)) => t.program,
+        (Err(_), Err(_)) => return missing_tool(a, "hacer capturas", region.err().unwrap()),
+    };
+    let saved = if tool_name == "niri" { "La guarda niri en su carpeta de capturas y la copia al portapapeles.".to_string() } else { format!("Se guarda en **{}**.", desktop::pictures_dir()) };
+    let mut resp = Response::new(format!("En tu escritorio ({}) las capturas se hacen con **{tool_name}**. {saved}\n\n> Al pulsar, la isla se recoge para no salir en la foto.", desktop::desktop().name));
+    let mut options: Vec<(&str, Tool, &str)> = Vec::new();
+    if let Ok(t) = region {
+        options.push(("Capturar un recuadro", t, "Dibuja con el ratón el trozo de pantalla que quieres. Esc cancela."));
+    }
+    if let Ok(t) = full {
+        options.push(("Capturar la pantalla entera", t, "Guarda la pantalla completa como imagen."));
+    }
+    if !region_first {
+        options.reverse();
+    }
+    for (label, tool, description) in &options {
+        desktop_action(a, &mut resp, label, tool, description);
+    }
+    let first = &options[0].1.command;
+    resp.learn = Some(crate::model::Learn { command: first.clone(), note: "Es el comando que hay detrás. Puedes ponerlo en un atajo de teclado.".into() });
+    resp.chips(&["atajo para archito", "qué escritorio uso"])
+}
+
+fn h_lock(a: &Archito, _: &str) -> Response {
+    let tool = match desktop::lock() {
+        Ok(t) => t,
+        Err(missing) => {
+            let mut resp = missing_tool(a, "bloquear la pantalla", missing);
+            if desktop::desktop().family == desktop::Family::Hyprland {
+                resp.text.push_str("\n\nSi prefieres que el bloqueo lo maneje **hypridle** (también se bloquea solo al rato sin usar el equipo), instálalo junto a hyprlock y arráncalo con `exec-once = hypridle` en tu hyprland.conf.");
+            }
+            return resp;
+        }
+    };
+    let how = if tool.program == "loginctl" {
+        "le pido a tu sesión que se bloquee, y la bloquea tu propio escritorio"
+    } else {
+        "se usa"
+    };
+    let mut resp = Response::new(format!("Para bloquear en {} {how}: **{}**. Para volver, escribes tu contraseña.", desktop::desktop().name, tool.program))
+        .learn(&tool.command, "Bloquea la sesión. Tus programas siguen abiertos detrás.");
+    desktop_action(a, &mut resp, "Bloquear ahora", &tool, "Bloquea la pantalla. Tus ventanas siguen abiertas.");
+    resp.chips(&["qué escritorio uso"])
+}
+
+fn h_brightness(a: &Archito, n: &str) -> Response {
+    let Some((now, max)) = desktop::backlight() else {
+        return Response::new(
+            "Tu pantalla no tiene una luz de fondo que el sistema pueda regular. Pasa en los PC de mesa con monitor externo: el brillo se cambia con los botones del monitor.\n\n> Si tu monitor admite DDC/CI, **ddcutil** puede cambiarlo desde la terminal: `ddcutil setvcp 10 50` lo pone al 50 %.",
+        )
+        .learn("ls /sys/class/backlight", "Si esta carpeta está vacía, no hay luz de fondo que el sistema controle.")
+        .chips(&["qué escritorio uso"]);
+    };
+    let pct = (100.0 * now as f32 / max as f32).round() as u32;
+    let (step, exact) = amount(n);
+    let wanted: Vec<(String, i32, Option<u32>)> = match (step, exact) {
+        (0, None) => vec![("Subir 10 %".into(), 10, None), ("Bajar 10 %".into(), -10, None)],
+        (s, None) if s > 0 => vec![(format!("Subir {s} %"), s, None)],
+        (s, None) => vec![(format!("Bajar {} %", -s), s, None)],
+        (_, Some(p)) => vec![(format!("Poner al {p} %"), 0, Some(p.max(1)))],
+    };
+    let mut resp = Response::new(format!("El brillo está al **{pct} %**.")).stat("Brillo", pct as f32, format!("{pct} %"), "good");
+    for (label, s, e) in wanted {
+        match desktop::brightness(s, e) {
+            Ok(tool) => {
+                if resp.learn.is_none() {
+                    resp = resp.learn(&tool.command, "Así se cambia el brillo desde la terminal.");
+                }
+                desktop_action(a, &mut resp, &label, &tool, "Cambia el brillo de la pantalla.");
+            }
+            Err(missing) => return missing_tool(a, "cambiar el brillo", missing),
+        }
+    }
+    resp.chips(&["sube el brillo", "baja el brillo", "brillo al 50"])
+}
+
+fn h_volume(a: &Archito, n: &str) -> Response {
+    let words: Vec<&str> = n.split(' ').collect();
+    let current = probe::volume();
+    let status = match current {
+        Some((v, true)) => format!("El volumen está al **{v} %**, pero silenciado."),
+        Some((v, false)) => format!("El volumen está al **{v} %**."),
+        None => "No pude leer el volumen actual.".to_string(),
+    };
+    let mut resp = Response::new(status);
+    if let Some((v, muted)) = current {
+        resp = resp.stat("Volumen", v.min(100) as f32, format!("{v} %"), if muted { "warn" } else { "good" });
+    }
+    let unmute = n.contains("quita el silencio") || n.contains("quitar el silencio") || words.contains(&"desmutea");
+    let mute = !unmute && words.iter().any(|w| matches!(*w, "silencia" | "silenciar" | "mutea"));
+    let muted = current.map(|(_, m)| m);
+    if (unmute && muted == Some(false)) || (mute && muted == Some(true)) {
+        let state = if unmute { "No está silenciado" } else { "Ya está silenciado" };
+        resp.text.push_str(&format!(" {state}, así que no hace falta cambiar nada."));
+        return resp.chips(&["sube el volumen", "no tengo sonido"]);
+    }
+    let result = if unmute || mute {
+        desktop::mute(mute).map(|t| vec![(if mute { "Silenciar" } else { "Quitar el silencio" }.to_string(), t)])
+    } else {
+        let (step, exact) = amount(n);
+        let step = if step == 0 && exact.is_none() { 10 } else { step };
+        let label = match exact {
+            Some(p) => format!("Poner al {p} %"),
+            None if step > 0 => format!("Subir {step} %"),
+            None => format!("Bajar {} %", -step),
+        };
+        desktop::volume(step, exact).map(|t| vec![(label, t)])
+    };
+    match result {
+        Ok(list) => {
+            for (label, tool) in list {
+                if resp.learn.is_none() {
+                    resp = resp.learn(&tool.command, "@DEFAULT_AUDIO_SINK@ es la salida de sonido que estás usando ahora.");
+                }
+                desktop_action(a, &mut resp, &label, &tool, "Cambia el volumen de la salida por defecto.");
+            }
+            resp.chips(&["sube el volumen", "baja el volumen", "no tengo sonido"])
+        }
+        Err(missing) => missing_tool(a, "cambiar el volumen", missing),
+    }
+}
+
+fn h_desktop(a: &Archito, _: &str) -> Response {
+    let d = desktop::desktop();
+    let distro = desktop::distro();
+    let mut lines = vec![
+        format!("{:<11} {} ({})", "Escritorio", d.name, d.session()),
+        format!("{:<11} {}", "Distro", distro.name),
+        format!("{:<11} {}", "AUR", desktop::aur_helper().unwrap_or("sin ayudante (yay o paru)")),
+        format!("{:<11} {}", "Isla", if d.layer_shell() { "anclada arriba (layer-shell)" } else { "ventana normal, sin bordes" }),
+    ];
+    let mut missing: Vec<&str> = Vec::new();
+    let mut row = |label: &str, result: Result<Tool, Missing>| match result {
+        Ok(t) => lines.push(format!("{label:<11} {}", t.program)),
+        Err(m) => {
+            lines.push(format!("{label:<11} falta: {}", m.package));
+            missing.extend(m.package.split(' '));
+        }
+    };
+    row("Capturas", desktop::screenshot(true).or_else(|_| desktop::screenshot(false)));
+    row("Bloqueo", desktop::lock());
+    if desktop::backlight().is_some() {
+        row("Brillo", desktop::brightness(10, None));
+    }
+    row("Volumen", desktop::volume(10, None));
+    if !distro.systemd {
+        lines.push(format!("{:<11} {}", "Init", "sin systemd: las guías de servicios no aplican"));
+    }
+
+    let program = std::env::var("APPIMAGE").unwrap_or_else(|_| "archito-panel".into());
+    let (where_, line) = d.shortcut_hint(&program);
+    let mut text = format!("Estás en **{}** sobre **{}**. Esto es lo que encontré y lo que uso para cada cosa:", d.name, d.session());
+    if let Some(note) = distro.note() {
+        text = format!("{text}\n\n> {note}");
+    }
+    if !d.layer_shell() && d.family == desktop::Family::Gnome {
+        text.push_str("\n\nGNOME no permite superficies layer-shell, así que la isla se abre como una ventana normal en vez de pegada al borde.");
+    }
+    text.push_str(&format!("\n\n**Atajo para abrir la isla.** {where_}\n`{line}`"));
+    let mut resp = Response::new(text).code(lines.join("\n"));
+    if !missing.is_empty() {
+        missing.dedup();
+        let command = format!("sudo pacman -S --needed {}", missing.join(" "));
+        let action = a.propose("Instalar lo que falta", &command, "Instala las herramientas de escritorio que Archito no encontró. Pacman te muestra la lista antes de empezar.");
+        resp.actions.push(action);
+    }
+    resp.learn("echo $XDG_CURRENT_DESKTOP $XDG_SESSION_TYPE", "Las dos variables con las que cualquier programa sabe en qué escritorio y sesión está.")
+        .chips(&["captura", "bloquea la pantalla", "sube el brillo"])
+}
+
 // ── Aprender ─────────────────────────────────────────────────────────────────
 
-fn h_path(a: &mut Archito, _: &str) -> Response {
+fn h_path(a: &Archito, _: &str) -> Response {
     let view = a.path();
-    let text = match lessons::next(&a.memory) {
+    let next = lessons::next(&a.mem());
+    let text = match next {
         Some(m) => {
-            lessons::start(&mut a.memory, m.id);
+            lessons::start(&mut a.mem(), m.id);
             let steps: Vec<String> = m.steps.iter().enumerate().map(|(i, s)| format!("{}. {s}", i + 1)).collect();
             format!(
                 "**Nivel {} · {}** ({} de {} misiones)\n\nTu siguiente misión: **{}**\n\n{}\n\n{}\n\n> Cuando la hagas en tu terminal, dime \"comprobar\" o usa el botón del camino.",
@@ -648,7 +909,7 @@ fn h_path(a: &mut Archito, _: &str) -> Response {
         }
         None => format!("**Nivel {} · {}**\n\nCompletaste las {} misiones del camino. Ya haces el mantenimiento de Arch por tu cuenta.", view.level, view.level_name, view.total),
     };
-    let command = lessons::next(&a.memory).map(|m| m.command);
+    let command = lessons::next(&a.mem()).map(|m| m.command);
     let mut resp = Response::new(text).view("camino");
     if let Some(command) = command {
         resp.chips = vec!["comprobar".into(), format!("explica {command}")];
@@ -656,8 +917,8 @@ fn h_path(a: &mut Archito, _: &str) -> Response {
     resp
 }
 
-fn h_check(a: &mut Archito, _: &str) -> Response {
-    let Some(mission) = lessons::next(&a.memory) else {
+fn h_check(a: &Archito, _: &str) -> Response {
+    let Some(mission) = lessons::next(&a.mem()) else {
         return Response::new("No queda ninguna misión por comprobar: terminaste el camino.").view("camino");
     };
     let result = a.check_mission(mission.id);
@@ -665,11 +926,11 @@ fn h_check(a: &mut Archito, _: &str) -> Response {
         return Response::new(result.message).status(Status::Warn).view("camino").chips(&["camino", &format!("explica {}", mission.command)]);
     }
     let level = result.level_up.map(|name| format!("\n\n**Subiste de nivel: {name}.**")).unwrap_or_default();
-    let next = lessons::next(&a.memory).map(|m| format!("\n\nLa siguiente: **{}**.", m.title)).unwrap_or_default();
+    let next = lessons::next(&a.mem()).map(|m| format!("\n\nLa siguiente: **{}**.", m.title)).unwrap_or_default();
     Response::new(format!("**Misión cumplida: {}** (+{} XP)\n\n{}{level}{next}", mission.title, result.xp, result.message)).view("camino").chips(&["camino", "bitácora"])
 }
 
-fn h_logbook(a: &mut Archito, _: &str) -> Response {
+fn h_logbook(a: &Archito, _: &str) -> Response {
     let entries = a.logbook();
     if entries.is_empty() {
         return Response::new("Tu bitácora está vacía. Cada comando que veas conmigo se apunta aquí con su explicación, para que tengas tu propia chuleta.")
@@ -680,9 +941,9 @@ fn h_logbook(a: &mut Archito, _: &str) -> Response {
     Response::new(format!("Ya conoces **{} comandos**. Esta es tu bitácora:", entries.len())).code(code.join("\n")).view("bitacora").chips(&["camino"])
 }
 
-fn h_how_install(a: &mut Archito, _: &str) -> Response {
-    let aur = ["yay", "paru"].into_iter().find(|t| exec::has_tool(t));
-    let aur_line = match aur {
+fn h_how_install(a: &Archito, _: &str) -> Response {
+    let aur_line = match desktop::aur_helper() {
+        Some("pamac") => "Tienes **pamac**, la herramienta de Manjaro: con `pamac build nombre` instalas desde el AUR si lo activaste en sus preferencias.".to_string(),
         Some(tool) => format!("Tienes **{tool}** instalado: con `{tool} -S nombre` instalas también desde el AUR."),
         None => "Para el AUR hace falta un ayudante como yay o paru, que todavía no tienes.".to_string(),
     };
@@ -694,20 +955,20 @@ fn h_how_install(a: &mut Archito, _: &str) -> Response {
     resp.chips(&["busca navegador", "qué es el AUR", "qué es un paquete"])
 }
 
-fn h_why(a: &mut Archito, _: &str) -> Response {
+fn h_why(a: &Archito, _: &str) -> Response {
     a.why()
 }
 
 // ── Sistema ──────────────────────────────────────────────────────────────────
 
-fn h_system(_: &mut Archito, _: &str) -> Response {
+fn h_system(_: &Archito, _: &str) -> Response {
     Response::new("Este es tu equipo ahora mismo:")
         .code(probe::summary())
         .learn("fastfetch", "Muestra un resumen parecido en la terminal. Si no lo tienes: sudo pacman -S fastfetch")
         .chips(&["salud", "temperatura", "disco"])
 }
 
-fn h_kernel(_: &mut Archito, _: &str) -> Response {
+fn h_kernel(_: &Archito, _: &str) -> Response {
     match probe::kernel() {
         Some(k) => Response::new(format!("Tu kernel es **{k}**.\n\nEl kernel es el programa que habla con tu hardware y reparte CPU y memoria entre todo lo demás."))
             .learn("uname -r", "Imprime la versión del kernel que está corriendo.")
@@ -716,14 +977,15 @@ fn h_kernel(_: &mut Archito, _: &str) -> Response {
     }
 }
 
-fn h_distro(_: &mut Archito, _: &str) -> Response {
+fn h_distro(_: &Archito, _: &str) -> Response {
+    let note = desktop::distro().note().map(|n| format!("\n\n{n}")).unwrap_or_default();
     match probe::distro() {
-        Some(d) => Response::new(format!("Tu sistema es **{d}**.")).learn("cat /etc/os-release", "Ese archivo guarda el nombre y la versión de tu distribución.").chips(&["kernel", "info del sistema"]),
+        Some(d) => Response::new(format!("Tu sistema es **{d}**.{note}")).learn("cat /etc/os-release", "Ese archivo guarda el nombre y la versión de tu distribución.").chips(&["kernel", "info del sistema"]),
         None => Response::new("No pude leer tu distribución.").status(Status::Error),
     }
 }
 
-fn h_cpu(_: &mut Archito, _: &str) -> Response {
+fn h_cpu(_: &Archito, _: &str) -> Response {
     let model = probe::cpu_model().unwrap_or_else(|| "CPU desconocida".into());
     let mut resp = Response::new(format!("Tu procesador es un **{model}** con {} hilos.", probe::cpu_threads()));
     if let Some(usage) = probe::cpu_usage() {
@@ -732,7 +994,7 @@ fn h_cpu(_: &mut Archito, _: &str) -> Response {
     resp.learn("lscpu", "Muestra todos los detalles del procesador.").chips(&["procesos", "temperatura"])
 }
 
-fn h_temp(_: &mut Archito, _: &str) -> Response {
+fn h_temp(_: &Archito, _: &str) -> Response {
     match probe::temperature() {
         None => Response::new("No encontré sensores de temperatura que pueda leer.")
             .status(Status::Warn)
@@ -753,7 +1015,7 @@ fn h_temp(_: &mut Archito, _: &str) -> Response {
     }
 }
 
-fn h_ram(_: &mut Archito, _: &str) -> Response {
+fn h_ram(_: &Archito, _: &str) -> Response {
     let Some(m) = probe::memory() else { return Response::new("No pude leer la memoria.").status(Status::Error) };
     let note = if m.pct > 85.0 { " Vas justo: mira qué la está usando." } else { "" };
     let mut resp = Response::new(format!("Usas **{:.1} de {:.0} GB** de RAM.{note}", m.used_gb, m.total_gb))
@@ -764,7 +1026,7 @@ fn h_ram(_: &mut Archito, _: &str) -> Response {
     resp.learn("free -h", "La columna \"available\" es la memoria que de verdad queda para programas nuevos.").chips(&["procesos por memoria", "qué es el swap"])
 }
 
-fn h_disk(_: &mut Archito, _: &str) -> Response {
+fn h_disk(_: &Archito, _: &str) -> Response {
     let Some(d) = probe::disk("/") else { return Response::new("No pude leer el disco.").status(Status::Error) };
     let note = match d.pct {
         p if p > 90.0 => " Queda muy poco: un disco lleno hace fallar actualizaciones.",
@@ -777,7 +1039,7 @@ fn h_disk(_: &mut Archito, _: &str) -> Response {
         .chips(&["caché", "huérfanos"])
 }
 
-fn h_processes(_: &mut Archito, n: &str) -> Response {
+fn h_processes(_: &Archito, n: &str) -> Response {
     let by_mem = n.contains("memoria") || n.contains("ram");
     let procs = probe::top_processes(by_mem, 6);
     if procs.is_empty() {
@@ -788,7 +1050,7 @@ fn h_processes(_: &mut Archito, n: &str) -> Response {
     Response::new(title).code(code.join("\n")).learn(cmd, "Para verlo en vivo usa htop o btop. Se sale con q.").chips(&["va lento", "ram"])
 }
 
-fn h_battery(_: &mut Archito, _: &str) -> Response {
+fn h_battery(_: &Archito, _: &str) -> Response {
     match probe::battery() {
         None => Response::new("No encontré batería. Parece un equipo de sobremesa."),
         Some(b) => {
@@ -805,7 +1067,7 @@ fn h_battery(_: &mut Archito, _: &str) -> Response {
     }
 }
 
-fn h_uptime(_: &mut Archito, _: &str) -> Response {
+fn h_uptime(_: &Archito, _: &str) -> Response {
     match probe::uptime() {
         Some(up) => Response::new(format!("Llevas **{up}** con el equipo encendido.\n\nTras actualizar el kernel hace falta reiniciar para empezar a usar el nuevo."))
             .learn("uptime", "Muestra el tiempo encendido y la carga del sistema.")
@@ -814,7 +1076,7 @@ fn h_uptime(_: &mut Archito, _: &str) -> Response {
     }
 }
 
-fn h_ip(_: &mut Archito, _: &str) -> Response {
+fn h_ip(_: &Archito, _: &str) -> Response {
     match probe::local_ip() {
         Some(ip) => Response::new(format!("Tu IP en la red local es **{ip}**.\n\nEs la dirección dentro de tu casa u oficina, no la que ve Internet."))
             .learn("ip addr", "Muestra las direcciones de cada interfaz de red.")
@@ -823,7 +1085,7 @@ fn h_ip(_: &mut Archito, _: &str) -> Response {
     }
 }
 
-fn h_health(_: &mut Archito, _: &str) -> Response {
+fn h_health(_: &Archito, _: &str) -> Response {
     let mut score: i32 = 100;
     let mut findings: Vec<String> = Vec::new();
     let mut resp = Response::new("");
@@ -889,7 +1151,7 @@ fn h_health(_: &mut Archito, _: &str) -> Response {
     resp.chips(&chips)
 }
 
-fn h_slow(_: &mut Archito, _: &str) -> Response {
+fn h_slow(_: &Archito, _: &str) -> Response {
     let mut findings: Vec<String> = Vec::new();
     let usage = probe::cpu_usage();
     if let Some(u) = usage.filter(|u| *u >= 70.0) {
@@ -931,7 +1193,7 @@ fn h_slow(_: &mut Archito, _: &str) -> Response {
 
 // ── Guías de problemas ───────────────────────────────────────────────────────
 
-fn h_sound(a: &mut Archito, n: &str) -> Response {
+fn h_sound(a: &Archito, n: &str) -> Response {
     if !exec::has_tool("wpctl") {
         return Response::new("No encuentro PipeWire (el servidor de sonido) en tu sistema. Sin él no hay audio.")
             .status(Status::Warn)
@@ -981,7 +1243,7 @@ fn h_sound(a: &mut Archito, n: &str) -> Response {
     resp.chips(&["qué es pipewire", "errores"])
 }
 
-fn h_network(a: &mut Archito, _: &str) -> Response {
+fn h_network(a: &Archito, _: &str) -> Response {
     let ifaces = probe::interfaces();
     let up: Vec<&(String, String)> = ifaces.iter().filter(|(_, s)| s == "UP").collect();
     let ip = probe::local_ip();
@@ -1027,7 +1289,7 @@ fn h_network(a: &mut Archito, _: &str) -> Response {
     resp.chips(&["mi ip", "errores"])
 }
 
-fn h_boot(a: &mut Archito, _: &str) -> Response {
+fn h_boot(a: &Archito, _: &str) -> Response {
     // /boot suele ser ilegible sin root: primero se mira qué gestor está instalado.
     let by_package = [("limine", "Limine"), ("grub", "GRUB"), ("refind", "rEFInd")].into_iter().find(|(pkg, _)| probe::is_installed(pkg)).map(|(_, name)| name);
     let by_files = [("/boot/grub", "GRUB"), ("/boot/loader/entries", "systemd-boot"), ("/boot/limine.conf", "Limine"), ("/efi/loader/entries", "systemd-boot")]
@@ -1050,7 +1312,7 @@ fn h_boot(a: &mut Archito, _: &str) -> Response {
 
 // ── Paquetes ─────────────────────────────────────────────────────────────────
 
-fn h_packages(_: &mut Archito, _: &str) -> Response {
+fn h_packages(_: &Archito, _: &str) -> Response {
     match probe::package_count() {
         Some(n) => Response::new(format!("Tienes **{n} paquetes** instalados. La mayoría son librerías que otros programas necesitan."))
             .learn("pacman -Qe", "Lista solo los que instalaste tú, sin dependencias.")
@@ -1059,7 +1321,7 @@ fn h_packages(_: &mut Archito, _: &str) -> Response {
     }
 }
 
-fn h_updates(_: &mut Archito, _: &str) -> Response {
+fn h_updates(_: &Archito, _: &str) -> Response {
     match probe::updates() {
         None => Response::new("Para ver las actualizaciones sin tocar el sistema uso `checkupdates`, que viene en el paquete pacman-contrib y no lo tienes.")
             .status(Status::Warn)
@@ -1076,9 +1338,21 @@ fn h_updates(_: &mut Archito, _: &str) -> Response {
     }
 }
 
-const CORE_PACKAGES: &[&str] = &["linux", "linux-lts", "linux-zen", "linux-cachyos", "glibc", "systemd", "mesa", "nvidia", "grub", "pacman", "openssl", "mkinitcpio", "limine", "wayland", "hyprland"];
+const CORE_PACKAGES: &[&str] = &["linux", "glibc", "systemd", "mesa", "nvidia", "grub", "pacman", "openssl", "mkinitcpio", "limine", "wayland", "dbus", "pipewire"];
 
-fn a_update(a: &mut Archito, _: &str) -> Response {
+/// Piezas que, al actualizarse, piden reiniciar o cerrar sesión: el kernel y
+/// sus variantes, los controladores y el propio escritorio. Los paquetes de
+/// desarrollo (`-headers`, `-docs`, `wayland-protocols`) no cuentan.
+fn is_core_package(p: &str) -> bool {
+    if p.ends_with("-headers") || p.ends_with("-docs") || p.ends_with("-protocols") {
+        return false;
+    }
+    let family = |c: &str| p == c || p.strip_prefix(c).is_some_and(|rest| rest.starts_with('-'));
+    let kernel_like = ["linux", "nvidia", "systemd"].iter().any(|c| family(c));
+    kernel_like || CORE_PACKAGES.contains(&p) || desktop::desktop().core_packages().contains(&p)
+}
+
+fn a_update(a: &Archito, _: &str) -> Response {
     let updates = probe::updates();
     let mut text = String::from("Actualizar Arch es una sola orden que sincroniza la lista de paquetes y pone todo al día.");
     let mut code = String::new();
@@ -1086,7 +1360,7 @@ fn a_update(a: &mut Archito, _: &str) -> Response {
         if list.is_empty() {
             return Response::new("Tu sistema ya está al día. No hay nada que actualizar.").learn("sudo pacman -Syu", "Es el comando de actualización. Ahora mismo no tendría nada que hacer.");
         }
-        let core: Vec<&str> = list.iter().map(String::as_str).filter(|p| CORE_PACKAGES.iter().any(|c| p == c || p.starts_with(&format!("{c}-")))).collect();
+        let core: Vec<&str> = list.iter().map(String::as_str).filter(|p| is_core_package(p)).collect();
         text.push_str(&format!("\n\nHay **{} paquetes** esperando.", list.len()));
         if core.is_empty() {
             text.push_str(" Ninguno es del núcleo del sistema: es una actualización tranquila.");
@@ -1101,7 +1375,7 @@ fn a_update(a: &mut Archito, _: &str) -> Response {
     resp.chips(&["actualizaciones", "qué es rolling release"])
 }
 
-fn h_orphans(a: &mut Archito, _: &str) -> Response {
+fn h_orphans(a: &Archito, _: &str) -> Response {
     let orphans = probe::orphans();
     if orphans.is_empty() {
         return Response::new("No tienes paquetes huérfanos: no hay dependencias sobrando.").learn("pacman -Qtdq", "Lista las dependencias que ya nadie usa. Sin salida significa que no hay ninguna.");
@@ -1121,7 +1395,7 @@ fn h_orphans(a: &mut Archito, _: &str) -> Response {
     resp.chips(&["qué es un huérfano"])
 }
 
-fn h_cache(a: &mut Archito, _: &str) -> Response {
+fn h_cache(a: &Archito, _: &str) -> Response {
     let size = exec::capture(&["du", "-sh", "/var/cache/pacman/pkg"], std::time::Duration::from_secs(8)).and_then(|o| o.split_whitespace().next().map(str::to_string));
     let size_line = size.map(|s| format!("Ahora ocupa **{s}**.")).unwrap_or_default();
     let mut resp = Response::new(format!(
@@ -1140,7 +1414,7 @@ fn h_cache(a: &mut Archito, _: &str) -> Response {
 
 // ── Servicios y registro ─────────────────────────────────────────────────────
 
-fn h_failed(a: &mut Archito, _: &str) -> Response {
+fn h_failed(a: &Archito, _: &str) -> Response {
     let failed = probe::failed_services();
     if failed.is_empty() {
         return Response::new("Todos los servicios están en pie. Systemd no reporta ninguno fallido.")
@@ -1157,7 +1431,7 @@ fn h_failed(a: &mut Archito, _: &str) -> Response {
     resp.chips(&["errores", "qué es un servicio"])
 }
 
-fn h_errors(_: &mut Archito, _: &str) -> Response {
+fn h_errors(_: &Archito, _: &str) -> Response {
     match probe::recent_errors(10) {
         Some(out) => Response::new("Estos son los últimos errores desde que encendiste. Es normal que haya algunos; si uno no se entiende, pégamelo.")
             .code(out)
@@ -1169,7 +1443,7 @@ fn h_errors(_: &mut Archito, _: &str) -> Response {
     }
 }
 
-fn h_activity(_: &mut Archito, _: &str) -> Response {
+fn h_activity(_: &Archito, _: &str) -> Response {
     let rows = memory::recent_activity(10);
     if rows.is_empty() {
         return Response::new("Todavía no hay acciones registradas. Solo apunto lo que confirmas o cancelas; las conversaciones no se guardan.");
@@ -1189,7 +1463,7 @@ mod tests {
     /// Las frases que el motor anterior respondía mal por buscar subcadenas.
     #[test]
     fn frases_de_principiante() {
-        let mut a = bot();
+        let a = bot();
         assert!(a.process("mi sistema no arranca").text.contains("rescate"));
         assert!(a.process("como instalo un programa").text.contains("Cómo se instala"));
         assert!(a.process("se me rompio el grub").text.contains("rescate"));
@@ -1201,17 +1475,24 @@ mod tests {
 
     #[test]
     fn explica_respetando_mayusculas() {
-        let mut a = bot();
+        let a = bot();
         let r = a.process("Explica sudo pacman -Syu");
         assert_eq!(r.steps.len(), 3);
         assert!(r.steps[2].doc.contains("actualiza todo"));
         // Un comando visto una vez cuenta una vez en la bitácora.
-        assert_eq!(a.memory.seen.get("pacman"), Some(&1));
+        assert_eq!(a.mem().seen.get("pacman"), Some(&1));
+    }
+
+    #[test]
+    fn explica_comandos_con_sustituciones() {
+        let a = bot();
+        let r = a.process("¿ Explica el comando grim -g \"$(slurp)\" ~/a.png?");
+        assert_eq!(r.steps.first().map(|s| s.token.as_str()), Some("grim"));
     }
 
     #[test]
     fn glosario_y_errores() {
-        let mut a = bot();
+        let a = bot();
         assert!(a.process("¿Qué es el AUR?").text.contains("comunidad"));
         let r = a.process("error: failed to init transaction (unable to lock database)");
         assert_eq!(r.status, Status::Warn);
@@ -1221,7 +1502,7 @@ mod tests {
 
     #[test]
     fn las_acciones_se_ejecutan_por_numero() {
-        let mut a = bot();
+        let a = bot();
         let r = a.process("que es el kernel");
         let action = &r.actions[0];
         assert_eq!(action.level, Level::Safe);
@@ -1234,7 +1515,7 @@ mod tests {
 
     #[test]
     fn lo_que_no_sabe_lo_dice() {
-        let mut a = bot();
+        let a = bot();
         assert!(a.process("cuéntame de la revolución francesa").text.contains("todavía no lo sé"));
     }
 }

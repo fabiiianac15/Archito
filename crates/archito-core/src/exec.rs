@@ -38,10 +38,19 @@ pub fn capture(argv: &[&str], timeout: Duration) -> Option<String> {
 pub fn capture_status(argv: &[&str], timeout: Duration) -> Option<(String, bool)> {
     let (prog, args) = argv.split_first()?;
     let mut cmd = Command::new(prog);
-    cmd.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    cmd.args(args);
     // Salida en inglés estable para poder leerla; los textos al usuario son nuestros.
     cmd.env("LC_ALL", "C");
-    let mut child = clean(&mut cmd).spawn().ok()?;
+    // stderr se lee para que el programa no se bloquee al escribir, y se descarta.
+    let (out, _err, status) = wait_output(&mut cmd, timeout)?;
+    Some((out, status.success()))
+}
+
+/// Arranca `cmd` con stdout y stderr en tuberías y espera hasta `timeout`.
+/// Si se pasa, lo mata y devuelve `None`.
+fn wait_output(cmd: &mut Command, timeout: Duration) -> Option<(String, String, std::process::ExitStatus)> {
+    cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = clean(cmd).spawn().ok()?;
     let mut stdout = child.stdout.take()?;
     let mut stderr = child.stderr.take()?;
     let reader = std::thread::spawn(move || {
@@ -67,9 +76,8 @@ pub fn capture_status(argv: &[&str], timeout: Duration) -> Option<(String, bool)
         }
     };
     let out = reader.join().ok()?;
-    // stderr se lee para que el programa no se bloquee al escribir, y se descarta.
-    let _ = err_reader.join();
-    Some((out, status.success()))
+    let err = err_reader.join().unwrap_or_default();
+    Some((out, err, status))
 }
 
 fn trim_lines(text: &str) -> String {
@@ -92,17 +100,76 @@ pub fn run_inline(command: &str) -> Result<String, String> {
         return Err(format!("No tienes instalado `{prog}`."));
     }
     let mut cmd = Command::new(prog);
-    cmd.args(&argv[1..]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
-    let child = clean(&mut cmd).spawn().map_err(|e| e.to_string())?;
-    // Las lecturas de la lista son cortas; un `wait` simple basta.
-    let out = child.wait_with_output().map_err(|e| e.to_string())?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    let stderr = String::from_utf8_lossy(&out.stderr);
-    if out.status.success() {
+    cmd.args(&argv[1..]);
+    // Una lectura que no termina (un `journalctl` enorme, un disco dormido)
+    // no puede dejar el chat colgado.
+    let Some((stdout, stderr, status)) = wait_output(&mut cmd, Duration::from_secs(20)) else {
+        return Err("Tardó demasiado y lo detuve. Ejecútalo en tu terminal para verlo con calma.".into());
+    };
+    if status.success() {
         let text = trim_lines(&stdout);
         Ok(if text.is_empty() { "(sin salida)".into() } else { text })
     } else {
         Err(trim_lines(if stderr.trim().is_empty() { &stdout } else { &stderr }))
+    }
+}
+
+/// Lanza una acción de escritorio (captura, bloqueo, brillo, volumen) sin
+/// terminal. Solo acepta lo que `safety::is_desktop_action` deja pasar, y
+/// nunca usa una shell: el recuadro de `grim` se pide a `slurp` aquí mismo.
+///
+/// Espera un momento por si falla al arrancar; si sigue corriendo (una
+/// pantalla de bloqueo, el selector de una captura) lo deja en marcha.
+pub fn run_desktop(command: &str) -> Result<String, String> {
+    if !crate::safety::is_desktop_action(command) {
+        return Err("Esa acción no es de escritorio: va por terminal y con confirmación.".into());
+    }
+    let mut argv: Vec<String> = Vec::new();
+    for word in command.replace("\"$(slurp)\"", "\u{0}").split_whitespace() {
+        if word == "\u{0}" {
+            // El usuario dibuja el recuadro; Esc lo cancela.
+            match capture_status(&["slurp"], Duration::from_secs(120)) {
+                Some((area, true)) if !area.trim().is_empty() => argv.push(area.trim().to_string()),
+                _ => return Err("Cancelaste la selección. No se capturó nada.".into()),
+            }
+        } else {
+            argv.push(word.to_string());
+        }
+    }
+    let Some(prog) = argv.first() else { return Err("Comando vacío.".into()) };
+    if !has_tool(prog) {
+        return Err(format!("No tienes instalado `{prog}`."));
+    }
+    let mut cmd = Command::new(prog);
+    cmd.args(&argv[1..]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
+    let mut child = clean(&mut cmd).spawn().map_err(|e| e.to_string())?;
+    let deadline = Instant::now() + Duration::from_millis(1500);
+    loop {
+        match child.try_wait().map_err(|e| e.to_string())? {
+            Some(status) if status.success() => return Ok("Hecho.".into()),
+            Some(status) => {
+                let mut err = String::new();
+                if let Some(mut stderr) = child.stderr.take() {
+                    let _ = stderr.read_to_string(&mut err);
+                }
+                let err = err.trim();
+                return Err(if err.is_empty() { format!("Terminó con error ({}).", status.code().unwrap_or(1)) } else { trim_lines(err) });
+            }
+            None if Instant::now() >= deadline => {
+                // Sigue abierto: se recoge en otro hilo cuando termine. Su
+                // stderr se sigue vaciando, o una pantalla de bloqueo que
+                // escribe mucho se quedaría trabada con la tubería llena.
+                let stderr = child.stderr.take();
+                std::thread::spawn(move || {
+                    if let Some(mut stderr) = stderr {
+                        let _ = std::io::copy(&mut stderr, &mut std::io::sink());
+                    }
+                    let _ = child.wait();
+                });
+                return Ok("En marcha.".into());
+            }
+            None => std::thread::sleep(Duration::from_millis(30)),
+        }
     }
 }
 

@@ -95,10 +95,11 @@ fn ask(prompt: &str) -> String {
 }
 
 /// Ofrece cada acción de la respuesta. Nada corre sin un "s" explícito.
-fn offer_actions(bot: &mut Archito, resp: &Response) {
+fn offer_actions(bot: &Archito, resp: &Response) {
     let interactive = io::stdin().is_terminal() && io::stdout().is_terminal();
     for action in &resp.actions {
         let (tag, color) = match action.level {
+            _ if action.quick => ("escritorio", CYAN),
             Level::Safe => ("solo lee", GREEN),
             Level::Confirm => ("cambia el sistema", YELLOW),
             Level::Danger => ("PELIGROSO", RED),
@@ -128,6 +129,16 @@ fn offer_actions(bot: &mut Archito, resp: &Response) {
             continue;
         }
         let Some(taken) = bot.take_action(action.id) else { continue };
+        if taken.quick {
+            // Capturas, bloqueo, brillo, volumen: sin shell, como en la isla.
+            let result = exec::run_desktop(&taken.command);
+            memory::log_activity(&taken.command, if result.is_ok() { "ejecutado" } else { "falló" });
+            match result {
+                Ok(out) => println!("  {GREEN}{out}{RESET}\n"),
+                Err(out) => println!("  {RED}{out}{RESET}\n"),
+            }
+            continue;
+        }
         println!();
         let code = exec::run_here(&taken.command);
         memory::log_activity(&taken.command, if code == 0 { "ejecutado" } else { "falló" });
@@ -141,7 +152,7 @@ fn offer_actions(bot: &mut Archito, resp: &Response) {
     }
 }
 
-fn respond(bot: &mut Archito, input: &str) -> bool {
+fn respond(bot: &Archito, input: &str) -> bool {
     let resp = match archito_core::text::norm(input).as_str() {
         "porque" | "por que" | "why" => bot.why(),
         _ => bot.process(input),
@@ -226,7 +237,7 @@ fn main() {
         Some("hook") => return hook(&args[1..]),
         _ => {}
     }
-    let mut bot = Archito::new();
+    let bot = Archito::new();
     if args.first().is_some_and(|a| a == "--json") {
         let resp = bot.process(&args[1..].join(" "));
         return println!("{}", serde_json::to_string_pretty(&resp).unwrap_or_default());
@@ -235,7 +246,7 @@ fn main() {
         return print_path(&bot.path());
     }
     if !args.is_empty() {
-        respond(&mut bot, &args.join(" "));
+        respond(&bot, &args.join(" "));
         return;
     }
     let welcome = bot.welcome();
@@ -253,7 +264,7 @@ fn main() {
         if line.is_empty() {
             continue;
         }
-        if matches!(line, "salir" | "exit" | "q") || !respond(&mut bot, line) {
+        if matches!(line, "salir" | "exit" | "q") || !respond(&bot, line) {
             break;
         }
     }
